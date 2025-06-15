@@ -1,11 +1,32 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Customer Details</title>
-<script>window.STRIPE_PUBLISHABLE_KEY='pk_test_…';</script>
-<script src="https://js.stripe.com/v3/"></script>
-<style>/* same CSS */ .btn-cta{padding:.5em 1em;border:none;border-radius:6px;cursor:pointer} .btn-yellow{background:#ffc107;} .btn-red{background:#dc3545;} .pm, .invoice{margin:.5em 0} .pm button{margin-left:1em}
-</style>
-</head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Customer Details</title>
+  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_…';</script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    /* Base layout same as index */
+    body, html { margin: 0; padding: 0; height: 100%; }
+    .sidebar { background: #000; color: #fff; width: 280px; position: fixed; height: 100%; padding: 2em; box-sizing: border-box; }
+    .content { margin-left: 280px; padding: 2em; font-family: sans-serif; }
+    .btn-cta { padding: .5em 1em; border: none; border-radius: 6px; cursor: pointer; margin-right: .5em; }
+    .btn-yellow { background: #ffc107; color: #000; }
+    .btn-red { background: #dc3545; color: #fff; }
+    .pm, .invoice { margin: .5em 0; }
+    .pm button { margin-left: 1em; }
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
+      .content { margin-left: 0; padding: 1em; }
+      .btn-cta, #add-pm { width: 100%; box-sizing: border-box; margin-bottom: .5em; }
+    }
+  </style>
+</head>
+<body>
   <div class="sidebar">
-    <img src="assets/logo.svg" width="150"/>
+    <img src="assets/logo.svg" width="150" alt="RoofEngine" />
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp"></p>
     <p id="context"></p>
@@ -21,62 +42,65 @@
     <h2>Billing history</h2>
     <div id="history"></div>
   </div>
-<script>
-const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-const url=new URL(location); const customerId=url.searchParams.get('customerId');
-// timestamp and context
-function u(){document.getElementById('timestamp').textContent='Today is '+new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date())+' EST'};u();setInterval(u,60000);
-document.getElementById('context').textContent='You are updating the details for: '+customerId;
+  <script>
+    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
+    const url = new URL(location);
+    const customerId = url.searchParams.get('customerId');
 
-// load subscriptions
-(async()=>{
-  const subs=await fetch('/.netlify/functions/list-subscriptions?customerId='+customerId).then(r=>r.json());
-  if(subs.length){
-    const s=subs[0];
-    document.getElementById('plan').innerHTML=`
-      <strong>${s.plan.nickname||s.plan.id}</strong><br>
-      ${ (s.plan.amount/100).toFixed(2) } USD · renews on ${new Date(s.current_period_end*1000).toLocaleDateString()}`;
-    document.getElementById('pause').onclick=async()=>{await fetch('/.netlify/functions/pause-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})});alert('Paused');};
-    document.getElementById('cancel').onclick=async()=>{await fetch('/.netlify/functions/cancel-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})});alert('Canceled');};
-  }
-})();
+    function updateTime() {
+      const opts = { timeZone: 'America/New_York', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+      document.getElementById('timestamp').textContent = 'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
+    }
+    updateTime(); setInterval(updateTime, 60000);
 
-// load payment methods
-(async()=>{
-  const pms=await fetch('/.netlify/functions/list-payment-methods?customerId='+customerId).then(r=>r.json());
-  const container=document.getElementById('pms');
-  container.innerHTML='';
-  pms.forEach(pm=>{
-    const el=document.createElement('div'); el.className='pm';
-    el.textContent=`${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (exp ${pm.card.exp_month}/${pm.card.exp_year})`;
-    const btnDel=document.createElement('button'); btnDel.textContent='✖';
-    btnDel.onclick=async()=>{await stripe.detachPaymentMethod(pm.id);location.reload()};
-    el.append(btnDel);
-    container.append(el);
-  });
-})();
+    document.getElementById('context').textContent = 'You are updating the details for: ' + customerId;
 
-// add PM flow
-document.getElementById('add-pm').onclick=async()=>{
-  const { clientSecret }=await fetch('/.netlify/functions/create-setup-intent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId})}).then(r=>r.json());
-  const elements=stripe.elements(); const card=elements.create('card'); card.mount(document.getElementById('pms'));
-  const {setupIntent,error}=await stripe.confirmCardSetup(clientSecret,{payment_method:{card}});
-  if(error) return alert(error.message);
-  await fetch('/.netlify/functions/attach-method',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,paymentMethodId:setupIntent.payment_method})});
-  location.reload();
-};
+    (async () => {
+      const subs = await fetch('/.netlify/functions/list-subscriptions?customerId=' + customerId).then(r => r.json());
+      if (subs.length) {
+        const s = subs[0];
+        document.getElementById('plan').innerHTML = `
+          <strong>${s.plan.nickname || s.plan.id}</strong><br>
+          ${(s.plan.amount / 100).toFixed(2)} USD · renews on ${new Date(s.current_period_end * 1000).toLocaleDateString()}`;
+        document.getElementById('pause').onclick = async () => { await fetch('/.netlify/functions/pause-subscription', { method: 'POST', body: JSON.stringify({ subscriptionId: s.id }) }); alert('Paused'); };
+        document.getElementById('cancel').onclick = async () => { await fetch('/.netlify/functions/cancel-subscription', { method: 'POST', body: JSON.stringify({ subscriptionId: s.id }) }); alert('Canceled'); };
+      }
+    })();
 
-// billing history
-(async()=>{
-  const inv=await fetch('/.netlify/functions/list-invoices?customerId='+customerId).then(r=>r.json());
-  const history=document.getElementById('history');
-  inv.forEach(i=>{
-    const d=new Date(i.created*1000).toLocaleDateString();
-    const amt=(i.amount_paid/100).toFixed(2)+' USD';
-    const a=document.createElement('div'); a.className='invoice';
-    a.innerHTML=`${d} · ${amt} · ${i.subscription}`;
-    history.append(a);
-  });
-})();
-</script>
-</body></html>
+    (async () => {
+      const pms = await fetch('/.netlify/functions/list-payment-methods?customerId=' + customerId).then(r => r.json());
+      const container = document.getElementById('pms');
+      container.innerHTML = '';
+      pms.forEach(pm => {
+        const el = document.createElement('div'); el.className = 'pm';
+        el.textContent = `${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (exp ${pm.card.exp_month}/${pm.card.exp_year})`;
+        const btnDel = document.createElement('button'); btnDel.textContent = '✖';
+        btnDel.onclick = async () => { await stripe.detachPaymentMethod(pm.id); location.reload(); };
+        el.append(btnDel);
+        container.append(el);
+      });
+    })();
+
+    document.getElementById('add-pm').onclick = async () => {
+      const { clientSecret } = await fetch('/.netlify/functions/create-setup-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerId }) }).then(r => r.json());
+      const elements = stripe.elements(); const card = elements.create('card'); card.mount(document.getElementById('pms'));
+      const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
+      if (error) return alert(error.message);
+      await fetch('/.netlify/functions/attach-method', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method }) });
+      location.reload();
+    };
+
+    (async () => {
+      const inv = await fetch('/.netlify/functions/list-invoices?customerId=' + customerId).then(r => r.json());
+      const history = document.getElementById('history');
+      inv.forEach(i => {
+        const d = new Date(i.created * 1000).toLocaleDateString();
+        const amt = (i.amount_paid / 100).toFixed(2) + ' USD';
+        const a = document.createElement('div'); a.className = 'invoice';
+        a.innerHTML = `${d} · ${amt} · ${i.subscription}`;
+        history.append(a);
+      });
+    })();
+  </script>
+</body>
+</html>
