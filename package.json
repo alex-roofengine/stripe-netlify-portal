@@ -7,7 +7,7 @@
     "build": "echo 'No build step'"
   },
   "dependencies": {
-    "stripe": "^11.0.0"
+    "stripe": "^11.0.0",
     "dotenv": "^10.0.0"
   }
 }
