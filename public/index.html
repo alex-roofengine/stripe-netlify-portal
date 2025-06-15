@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Update Payment Method</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>body{font-family:sans-serif;max-width:400px;margin:2em auto;}#card-element{padding:.5em;border:1px solid #ccc;border-radius:4px;}</style>
+</head>
+<body>
+  <h1>Update Customer Card</h1>
+  <label>Select customer:
+    <select id="customer-select"><option value="">— choose —</option></select>
+  </label>
+  <button id="start-setup" disabled>Update payment method</button>
+
+  <form id="setup-form" style="display:none;margin-top:1em;">
+    <div id="card-element"></div>
+    <button type="submit" style="margin-top:.5em;">Save New Card</button>
+  </form>
+
+  <script src="main.js"></script>
+</body>
+</html>
