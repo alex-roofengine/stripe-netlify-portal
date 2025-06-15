@@ -4,75 +4,58 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Create New Client</title>
-  <!-- Google Font Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';</script>
   <script src="https://js.stripe.com/v3/"></script>
   <style>
-    body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
-    .sidebar { background: #000; color: #fff; width: 280px; position: fixed; height: 100%; padding: 2em; box-sizing: border-box; }
-    .content { margin-left: 280px; padding: 2em; }
-    h1, h2 { margin-top: 0; font-weight: 600; }
-    label { display: block; margin: .5em 0 .25em; font-weight: 500; }
-    input { width: 100%; padding: .5em; font-size: 1em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-    #card-element { border: 1px solid #ccc; padding: 1em; border-radius: 6px; margin-top: .5em; }
-    .btn-green { display:inline-block; border:none; border-radius:6px; background:#28a745; color:#fff; font-weight:600; padding:1em 2em; cursor:pointer; margin-top:1em; }
-    @media (max-width: 768px) {
-      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
-      .content { margin-left: 0; padding: 1em; }
-      input, #card-element, .btn-green { width: 100%; box-sizing: border-box; }
-    }
+    body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif;}
+    .sidebar{background:#000;color:#fff;width:280px;position:fixed;height:100%;padding:2em;box-sizing:border-box;}
+    .content{margin-left:280px;padding:2em;}
+    h1,h2{margin-top:0;font-weight:600;}
+    label{display:block;margin:.5em 0 .25em;font-weight:500;}
+    input{width:100%;padding:.5em;font-size:1em;box-sizing:border-box;border:1px solid #ccc;border-radius:4px;}
+    #card-element{border:1px solid #ccc;padding:1em;border-radius:6px;margin-top:.5em;}
+    .btn-green{display:inline-block;border:none;border-radius:6px;background:#28a745;color:#fff;font-weight:600;padding:1em 2em;cursor:pointer;margin-top:1em;}
+    @media(max-width:768px){.sidebar{position:relative;width:100%;height:auto;padding:1em;} .content{margin-left:0;padding:1em;} .form-grid{display:block;} .btn-green,input,#card-element{width:100%;box-sizing:border-box;}}
   </style>
 </head>
 <body>
   <div class="sidebar">
     <img src="assets/logo.svg" width="150" alt="RoofEngine" />
+    <a href="index.html" style="color:#fff;text-decoration:none;display:block;margin-bottom:1em;">← Home</a>
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp"></p>
   </div>
   <div class="content">
     <h1>Billing</h1>
     <h2>Create a new customer:</h2>
-    <div style="max-width:400px;">
-      <label>Company Name:</label>
-      <input id="name" type="text" placeholder="Company name" />
-      <label>Email:</label>
-      <input id="email" type="email" placeholder="email@example.com" />
-      <label>Phone:</label>
-      <input id="phone" type="tel" placeholder="(555) 123-4567" />
-      <label>Address Line 1:</label>
-      <input id="addr1" type="text" />
-      <label>City:</label>
-      <input id="city" type="text" />
-      <label>State/Province:</label>
-      <input id="region" type="text" />
-      <label>Postal Code:</label>
-      <input id="postal_code" type="text" />
-      <label>Country:</label>
-      <input id="country" type="text" placeholder="US" />
-      <label>Payment Method:</label>
-      <div id="card-element"></div>
-      <button id="submit" class="btn-green">Submit</button>
-      <p id="message" style="margin-top:1em;color:#dc3545;"></p>
+    <div class="form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:1em;max-width:800px;">
+      <div><label>Company Name:</label><input id="name" required type="text" placeholder="Company name" /></div>
+      <div><label>Email:</label><input id="email" required type="email" placeholder="email@example.com" /></div>
+      <div><label>Phone:</label><input id="phone" required type="tel" placeholder="(555) 123-4567" /></div>
+      <div><label>Address Line 1:</label><input id="addr1" required type="text" /></div>
+      <div><label>City:</label><input id="city" required type="text" /></div>
+      <div><label>State/Province:</label><input id="region" required type="text" /></div>
+      <div><label>Postal Code:</label><input id="postal_code" required type="text" /></div>
+      <div style="grid-column:1/-1"><label>Payment Method:</label><div id="card-element"></div></div>
+      <div style="grid-column:1/-1"><button id="submit" class="btn-green">Submit</button></div>
     </div>
+    <p id="message" style="margin-top:1em;color:#dc3545;"></p>
   </div>
   <script>
-    // Sidebar timestamp
     function updateTime() {
-      const opts = { timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true };
-      document.getElementById('timestamp').textContent = 'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+      const opts={timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true};
+      document.getElementById('timestamp').textContent='Today is '+new Intl.DateTimeFormat('en-US',opts).format(new Date())+' EST';
     }
     updateTime(); setInterval(updateTime,60000);
 
-    // Stripe Elements
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-    const elements = stripe.elements({ locale: 'en' });
-    const card = elements.create('card', { style: { base: { fontFamily: 'Inter, sans-serif' } } });
+    const elements = stripe.elements({ locale:'en' });
+    const card = elements.create('card', { style:{base:{fontFamily:'Inter, sans-serif'}} });
     card.mount('#card-element');
 
-    // Submit handler
     async function submit() {
       document.getElementById('submit').disabled = true;
       const body = {
@@ -83,17 +66,16 @@
           line1: document.getElementById('addr1').value,
           city: document.getElementById('city').value,
           state: document.getElementById('region').value,
-          postal_code: document.getElementById('postal_code').value,
-          country: document.getElementById('country').value
+          postal_code: document.getElementById('postal_code').value
         }
       };
-      const resp = await fetch('/.netlify/functions/create-customer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const resp = await fetch('/.netlify/functions/create-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const { customerId, clientSecret } = await resp.json();
-      const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
-      if (error) { document.getElementById('message').textContent = error.message; return; }
-      await fetch('/.netlify/functions/attach-method', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method }) });
-      document.getElementById('message').style.color = '#28a745';
-      document.getElementById('message').textContent = '✅ Customer created and card saved!';
+      const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{payment_method:{card}});
+      if(error) { document.getElementById('message').textContent = error.message; return; }
+      await fetch('/.netlify/functions/attach-method',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({customerId,paymentMethodId: setupIntent.payment_method})});
+      document.getElementById('message').style.color='#28a745';
+      document.getElementById('message').textContent='✅ Customer created and card saved!';
     }
     document.getElementById('submit').addEventListener('click', submit);
   </script>
