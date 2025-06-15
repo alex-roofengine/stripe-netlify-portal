@@ -1,0 +1,21 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Update Customer</title>
+<style>/* same CSS */</style>
+</head><body>
+  <div class="sidebar">…<p id="timestamp"></p></div>
+  <div class="content">
+    <h1>Choose a client:</h1>
+    <select id="customer-select"><option>— choose —</option></select>
+    <button id="go" disabled>Next</button>
+  </div>
+<script>
+// load customers
+document.addEventListener('DOMContentLoaded',async()=>{
+  const sel=document.getElementById('customer-select');
+  const data=await fetch('/.netlify/functions/list-customers').then(r=>r.json());
+  data.forEach(c=>sel.append(new Option(c.name,c.id)));
+  sel.onchange=()=>document.getElementById('go').disabled=!sel.value;
+  document.getElementById('go').onclick=()=>location.href='update-details.html?customerId='+sel.value;
+});
+// timestamp … same as before
+</script>
+</body></html>
