@@ -1,21 +1,47 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Update Customer</title>
-<style>/* same CSS */</style>
-</head><body>
-  <div class="sidebar">…<p id="timestamp"></p></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Update Customer</title>
+  <style>
+    /* Base layout same as index */
+    body, html { margin: 0; padding: 0; height: 100%; }
+    .sidebar { background: #000; color: #fff; width: 280px; position: fixed; height: 100%; padding: 2em; box-sizing: border-box; }
+    .content { margin-left: 280px; padding: 2em; font-family: sans-serif; }
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
+      .content { margin-left: 0; padding: 1em; }
+      #customer-select, #go { width: 100%; box-sizing: border-box; margin-bottom: .5em; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <img src="assets/logo.svg" width="150" alt="RoofEngine" />
+    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
+    <p id="timestamp"></p>
+  </div>
   <div class="content">
     <h1>Choose a client:</h1>
     <select id="customer-select"><option>— choose —</option></select>
     <button id="go" disabled>Next</button>
   </div>
-<script>
-// load customers
-document.addEventListener('DOMContentLoaded',async()=>{
-  const sel=document.getElementById('customer-select');
-  const data=await fetch('/.netlify/functions/list-customers').then(r=>r.json());
-  data.forEach(c=>sel.append(new Option(c.name,c.id)));
-  sel.onchange=()=>document.getElementById('go').disabled=!sel.value;
-  document.getElementById('go').onclick=()=>location.href='update-details.html?customerId='+sel.value;
-});
-// timestamp … same as before
-</script>
-</body></html>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const sel = document.getElementById('customer-select');
+      const data = await fetch('/.netlify/functions/list-customers').then(r => r.json());
+      data.forEach(c => sel.append(new Option(c.name, c.id)));
+      sel.onchange = () => document.getElementById('go').disabled = !sel.value;
+      document.getElementById('go').onclick = () => location.href = 'update-details.html?customerId=' + sel.value;
+    });
+
+    function updateTime() {
+      const opts = { timeZone: 'America/New_York', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+      document.getElementById('timestamp').textContent = 'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
+    }
+    updateTime(); setInterval(updateTime, 60000);
+  </script>
+</body>
+</html>
