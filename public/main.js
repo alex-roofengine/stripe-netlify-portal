@@ -1,4 +1,4 @@
-const stripe = Stripe(process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_...');
+const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
 
 async function loadCustomers() {
   const res = await fetch('/.netlify/functions/customers');
