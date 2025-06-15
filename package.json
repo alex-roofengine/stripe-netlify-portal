@@ -2,12 +2,6 @@
   "name": "stripe-netlify-portal",
   "version": "1.0.0",
   "private": true,
-  "scripts": {
-    "start": "netlify dev",
-    "build": "echo 'No build step'"
-  },
-  "dependencies": {
-    "stripe": "^11.0.0",
-    "dotenv": "^10.0.0"
-  }
+  "scripts": {"start": "netlify dev"},
+  "dependencies": {"stripe": "^11.0.0"}
 }
