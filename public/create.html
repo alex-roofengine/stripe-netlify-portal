@@ -1,0 +1,42 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><title>Create Customer</title>
+<script>window.STRIPE_PUBLISHABLE_KEY='pk_test_…';</script>
+<script src="https://js.stripe.com/v3/"></script>
+<style>/* same sidebar/content CSS as index */</style>
+</head><body>
+  <div class="sidebar">
+    <img src="assets/logo.svg" width="150"/>
+    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
+    <p id="timestamp"></p>
+  </div>
+  <div class="content">
+    <h1>Billing</h1>
+    <h2>Create a new customer:</h2>
+    <div id="form-container">
+      <label>Email: <input id="email" type="email"/></label><br/>
+      <label>Phone: <input id="phone" type="tel"/></label><br/>
+      <div id="card-element"></div>
+      <button id="submit">Submit</button>
+    </div>
+    <div id="message"></div>
+  </div>
+<script>
+const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
+const elements = stripe.elements();
+const card = elements.create('card'); card.mount('#card-element');
+async function submit(){
+  document.getElementById('submit').disabled=true;
+  const email=document.getElementById('email').value;
+  const phone=document.getElementById('phone').value;
+  // create customer + intent
+  const resp = await fetch('/.netlify/functions/create-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,phone})});
+  const {customerId,clientSecret}=await resp.json();
+  const {setupIntent,error}=await stripe.confirmCardSetup(clientSecret,{payment_method:{card}});
+  if(error) return document.getElementById('message').textContent=error.message;
+  await fetch('/.netlify/functions/attach-method',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,paymentMethodId:setupIntent.payment_method})});
+  document.getElementById('message').textContent='✅ Customer created and card saved!';
+}
+document.getElementById('submit').addEventListener('click',submit);
+// timestamp
+function u(){document.getElementById('timestamp').textContent='Today is '+new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date())+' EST'};u();setInterval(u,60000);
+</script>
+</body></html>
