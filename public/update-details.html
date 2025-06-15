@@ -4,68 +4,74 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Client Details</title>
-  <!-- Google Font Inter -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaO...';</script>
   <script src="https://js.stripe.com/v3/"></script>
   <style>
     body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif;}
     .sidebar{background:#000;color:#fff;width:280px;position:fixed;height:100%;padding:2em;box-sizing:border-box;}
     .content{margin-left:280px;padding:2em;}
-    h1,h2{margin-top:0;font-weight:600;}
+    a.home{color:#fff;text-decoration:none;display:block;margin-bottom:1em;}h1,h2{font-weight:600;}
+    .section{margin-bottom:2em;padding-bottom:1em;border-bottom:1px solid #ddd;}
     .btn-yellow,.btn-red{padding:1em 2em;border:none;border-radius:6px;font-weight:600;cursor:pointer;margin-right:20px;}
     .btn-yellow{background:#ffc107;color:#000;}
     .btn-red{background:#dc3545;color:#fff;}
-    #pms, #history{margin-top:1em;max-width:600px;}
-    .pm, .invoice{margin:.5em 0;}
-    @media(max-width:768px){.sidebar{position:relative;width:100%;height:auto;padding:1em;} .content{margin-left:0;padding:1em;} .btn-yellow,.btn-red{width:100%;margin-bottom:.5em;}}
+    #pms,.new-pm{margin-top:1em;max-width:400px;}
+    .pm-item{display:flex;align-items:center;justify-content:space-between;padding:.5em;border:1px solid #eee;border-radius:4px;margin-bottom:.5em;}
+    .pm-item img{width:40px;margin-right:.5em;}
+    .default-badge{background:#007bff;color:#fff;padding:2px 6px;border-radius:4px;font-size:.8em;margin-left:.5em;}
+    #history .invoice{padding:.5em 0;border-bottom:1px dashed #ccc;}
+    @media(max-width:768px){.sidebar{position:relative;width:100%;height:auto;padding:1em;} .content{margin-left:0;padding:1em;} .btn-yellow,.btn-red{width:100%;margin-bottom:1em;}}
   </style>
 </head>
 <body>
   <div class="sidebar">
     <img src="assets/logo.svg" width="150" alt="RoofEngine" />
+    <a href="index.html" class="home">← Home</a>
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp"></p>
     <p id="context"></p>
   </div>
   <div class="content">
-    <h1>Billing</h1>
-    <div id="plan"></div>
-    <button class="btn-yellow" id="pause">⏸ Pause retainer</button>
-    <button class="btn-red" id="cancel">⚠ Cancel retainer</button>
-    <h2>Payment method</h2>
-    <div id="pms"></div>
-    <button id="add-pm" class="btn-green">+ Add payment method</button>
-    <p id="pm-message" style="color:#28a745;"></p>
-    <h2>Billing history</h2>
-    <div id="history"></div>
+    <div class="section">
+      <h1>Billing</h1>
+      <div id="plan"></div>
+      <button class="btn-yellow" id="pause">⏸ Pause retainer</button>
+      <button class="btn-red" id="cancel">⚠ Cancel retainer</button>
+    </div>
+    <div class="section">
+      <h2>Payment method</h2>
+      <div id="pms"></div>
+      <button id="add-pm" class="btn-green">+ Add payment method</button>
+      <p id="pm-message" style="color:#28a745;"></p>
+    </div>
+    <div class="section">
+      <h2>Billing history</h2>
+      <div id="history"></div>
+    </div>
   </div>
   <script>
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const params=new URLSearchParams(location.search);
     const customerId=params.get('customerId');
-    let customerName='';
+    let invoicesAll=[];
 
     function updateTime(){const opts={timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true};document.getElementById('timestamp').textContent='Today is '+new Intl.DateTimeFormat('en-US',opts).format(new Date())+' EST';}
     updateTime();setInterval(updateTime,60000);
 
-    // Fetch customer name for context
-    (async()=>{
-      const custs=await fetch('/.netlify/functions/list-customers').then(r=>r.json());
-      const c=custs.find(x=>x.id===customerId);
-      customerName=c?c.name:customerId;
-      document.getElementById('context').textContent='You are updating the details for: '+customerName;
-    })();
+    // Context
+    (async()=>{const custs=await fetch('/.netlify/functions/list-customers').then(r=>r.json());const c=custs.find(x=>x.id===customerId);document.getElementById('context').textContent='You are updating the details for: '+(c?c.name:customerId);} )();
 
     // Subscriptions
     (async()=>{
       const subs=await fetch(`/.netlify/functions/list-subscriptions?customerId=${customerId}`).then(r=>r.json());
       const planEl=document.getElementById('plan');
       subs.forEach(s=>{
+        const name=s.plan.product.name;
         const status=s.status.charAt(0).toUpperCase()+s.status.slice(1);
-        planEl.innerHTML+=`<div><strong>${s.plan.nickname}</strong> (${status})</div><div>${(s.plan.amount/100).toFixed(2)} USD · renews on ${new Date(s.current_period_end*1000).toLocaleDateString()}</div>`;
+        planEl.innerHTML+=`<div><strong>${name}</strong> (${status})</div><div>${(s.plan.amount/100).toFixed(2)} USD · renews on ${new Date(s.current_period_end*1000).toLocaleDateString()}</div>`;
         document.getElementById('pause').onclick=()=>confirm('Pause this retainer?')&&fetch('/.netlify/functions/pause-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})}).then(()=>location.reload());
         document.getElementById('cancel').onclick=()=>confirm('Cancel this retainer?')&&fetch('/.netlify/functions/cancel-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})}).then(()=>location.reload());
       });
@@ -76,8 +82,11 @@
       const pms=await fetch(`/.netlify/functions/list-payment-methods?customerId=${customerId}`).then(r=>r.json());
       const cont=document.getElementById('pms');
       pms.forEach(pm=>{
-        const div=document.createElement('div');div.className='pm';
-        div.innerHTML=`${pm.card.brand.toUpperCase()} •••• ${pm.card.last4} (exp ${pm.card.exp_month}/${pm.card.exp_year})${pm.id===pm.customer.invoice_settings?.default_payment_method?' <em>Default</em>':''} <button onclick="stripe.detachPaymentMethod('${pm.id}').then(()=>location.reload())">✖</button>`;
+        const div=document.createElement('div');div.className='pm-item';
+        const logo=document.createElement('img');logo.src=`https://stripe.com/img/v3/payments/brand-logos/${pm.card.brand}.svg`;
+        const desc=document.createElement('span');desc.textContent=`•••• ${pm.card.last4} (exp ${pm.card.exp_month}/${pm.card.exp_year})`;
+        const btnDel=document.createElement('button');btnDel.textContent='✖';btnDel.onclick=()=>stripe.detachPaymentMethod(pm.id).then(()=>location.reload());
+        div.append(logo,desc, pm.id===pm.customer?.invoice_settings?.default_payment_method?Object.assign(document.createElement('span'),{textContent:'Default',className:'default-badge'}):null, btnDel);
         cont.append(div);
       });
     })();
@@ -85,27 +94,39 @@
     // Add Payment Method
     document.getElementById('add-pm').onclick=async()=>{
       const {clientSecret}=await fetch('/.netlify/functions/create-setup-intent',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId})}).then(r=>r.json());
-      const holder=document.createElement('div');holder.innerHTML='<div id="new-card"></div><button id="save-pm" class="btn-green" style="margin-top:.5em;">Save Card</button>';
+      const holder=document.createElement('div');holder.className='new-pm';
+      holder.innerHTML='<div id="new-card" style="border:1px solid #ccc;padding:1em;border-radius:6px;width:400px;max-width:100%;margin-bottom:1em;"></div><button id="save-pm" class="btn btn-green">Save Card</button>';
       document.getElementById('pms').append(holder);
       const elements=stripe.elements();const card2=elements.create('card',{style:{base:{fontFamily:'Inter, sans-serif'}}});card2.mount('#new-card');
       document.getElementById('save-pm').onclick=async()=>{
         const {setupIntent,error}=await stripe.confirmCardSetup(clientSecret,{payment_method:{card:card2}});
-        if(error)return alert(error.message);
+        if(error) return alert(error.message);
         await fetch('/.netlify/functions/attach-method',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId,paymentMethodId:setupIntent.payment_method})});
         document.getElementById('pm-message').textContent='✅ Payment method updated!';
       };
     };
 
-    // Billing History
+    // Billing History with View More
     (async()=>{
-      const invs=await fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`).then(r=>r.json());
+      invoicesAll=await fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`).then(r=>r.json());
+      renderInvoices(invoicesAll.slice(0,3));
+      if(invoicesAll.length>3){
+        const more=document.createElement('div');more.innerHTML='<a href="#" id="view-more">View more</a>';
+        document.getElementById('history').append(more);
+        document.getElementById('view-more').onclick=e=>{e.preventDefault();document.getElementById('history').innerHTML='';renderInvoices(invoicesAll);};
+      }
+    })();
+
+    function renderInvoices(list){
       const hist=document.getElementById('history');
-      invs.forEach(i=>{
+      list.forEach(i=>{
         const date=new Date(i.created*1000).toLocaleDateString();
         const status=i.status.charAt(0).toUpperCase()+i.status.slice(1);
-        hist.innerHTML+=`<div class="invoice"><a href="${i.hosted_invoice_url}" target="_blank">${date}</a> · ${(i.amount_paid/100).toFixed(2)} USD · ${status}${status==='Failed'?` (Reason: ${i.failure_message})`:''}</div>`;
+        const div=document.createElement('div');div.className='invoice';
+        div.innerHTML=`<a href="${i.hosted_invoice_url}" target="_blank">${date}</a> · ${(i.amount_paid/100).toFixed(2)} USD · ${status}${status==='Failed'?` (Reason: ${i.failure_message})`:''}`;
+        hist.append(div);
       });
-    })();
+    }
   </script>
 </body>
 </html>
