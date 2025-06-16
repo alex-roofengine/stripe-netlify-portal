@@ -17,24 +17,30 @@
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
+    /* Reset & base */
     * { box-sizing: border-box; }
-    body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
-    h1, h2 { margin: 0; font-weight: 600; }
+    body, html { margin: 0; padding: 0; height: 100%; font-family:'Inter', sans-serif; }
+    h1,h2 { margin: 0; font-weight: 600; }
 
     /* Sidebar */
     .sidebar {
-      position: fixed; left: 0; top: 0; width: 280px; height: 100%;
-      background: #000; color: #fff; padding: 2em; display: flex; flex-direction: column;
+      position: fixed; left: 0; top: 0;
+      width: 280px; height: 100%;
+      background: #000; color: #fff;
+      padding: 2em; display: flex; flex-direction: column;
     }
     .sidebar img { width: 150px; margin-bottom: 1em; }
     .sidebar h2 { font-size: 1.25em; line-height: 1.3; margin-bottom: 1em; }
     .sidebar p#timestamp { margin-bottom: 1em; }
     .sidebar p#context { margin-bottom: auto; }
-    .sidebar a.home { color: #fff; text-decoration: none; font-weight: 500; }
+    .sidebar a.home {
+      color: #fff; text-decoration: none; font-weight: 500;
+    }
 
     /* Content */
     .content { margin-left: 280px; padding: 2em; }
-    h1 { font-size: 1.5em; margin-bottom: 1em; }
+    /* UPDATED: apply id for dynamic header */
+    h1#billing-header { font-size: 1.5em; margin-bottom: 1em; }
 
     /* Plan & Actions */
     #plan { padding: 20px 0; border-bottom: 1px solid #eee; }
@@ -44,11 +50,13 @@
     #actions { display: flex; margin: 20px 0; }
     #actions .btn {
       padding: 1em 2em; border: none; border-radius: 6px;
-      font-weight: 600; font-size: 1em; cursor: pointer; min-width: 140px;
+      font-weight: 600; font-size: 1em; cursor: pointer;
+      min-width: 140px;
     }
     #actions .btn + .btn { margin-left: 70px; }
-    .btn-yellow { background: #ffc107; color: #000; }
-    .btn-red    { background: #dc3545; color: #fff; }
+    .btn-orange    { background: #ff7800; color: #000; }
+    .btn-paleyellow{ background: #f3e72f; color: #000; }
+    .btn-gray      { background: #212121; color: #fff; }
 
     /* Sections */
     .section {
@@ -74,296 +82,4 @@
       padding: 2px 6px; border-radius: 4px;
       font-size: .8em; margin-left: .75em;
     }
-    .pm-item button.remove {
-      background: transparent; border: none;
-      font-size: 1.2em; cursor: pointer; color: #dc3545;
-      margin-left: 1em;
-    }
-    .pm-item button.set-default {
-      border: 1px solid #007bff; background: transparent;
-      color: #007bff; border-radius: 6px; padding: .5em 1em;
-      font-size: .9em; cursor: pointer; margin-left: 1em;
-    }
-
-    /* New Card Form */
-    .new-pm-wrapper {
-      border: 1px solid #ccc; padding: 1em;
-      border-radius: 6px; max-width: 400px; margin-top: 1em;
-    }
-    .btn-save {
-      background: #00D084; color: #fff;
-      border: none; border-radius: 6px;
-      padding: 1em 2em; font-weight: 600; cursor: pointer;
-      margin-top: .5em;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
-      .content { margin-left: 0; padding: 1em; }
-      #actions { flex-direction: column; }
-      #actions .btn { width: 100%; margin-bottom: 1em; }
-      .pm-item { flex-direction: column; align-items: flex-start; }
-      .pm-item button { margin-left: 0; margin-top: .5em; }
-    }
-  </style>
-</head>
-<body>
-  <div class="sidebar">
-    <img src="assets/logo.svg" alt="RoofEngine" />
-    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
-    <p id="timestamp"></p>
-    <p id="context"></p>
-    <a href="index.html" class="home">← Home</a>
-  </div>
-
-  <div class="content">
-    <h1 id="billing-header">Billing</h1>
-
-    <!-- Subscription -->
-    <div id="plan"></div>
-
-    <!-- Actions -->
-    <div id="actions">
-      <button id="pause"  class="btn btn-yellow">⚠️ Pause retainer</button>
-      <button id="cancel" class="btn btn-red">🚫 Cancel retainer</button>
-    </div>
-
-    <!-- Payment Methods -->
-    <div class="section">
-      <h2>Payment methods</h2>
-      <div id="pms"></div>
-      <button id="add-pm" class="btn btn-yellow">+ Add payment method</button>
-      <div id="new-pm-area"></div>
-      <p id="pm-message" style="color:#28a745; margin-top:.5em;"></p>
-    </div>
-
-    <!-- Billing History -->
-    <div class="section">
-      <h2>Billing history</h2>
-      <div id="history"></div>
-    </div>
-  </div>
-
-  <script>
-    // 1) Sidebar clock
-    function updateTime(){
-      const opts = {
-        timeZone:'America/New_York', month:'long', day:'numeric',
-        hour:'numeric', minute:'2-digit', hour12:true
-      };
-      document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
-    }
-    updateTime(); setInterval(updateTime,60000);
-
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-    const params     = new URLSearchParams(location.search);
-    const customerId = params.get('customerId');
-
-    // 2) Fetch customer for header & context
-    fetch('/.netlify/functions/list-customers')
-      .then(r=>r.json())
-      .then(list=>{
-        const c = list.find(x=>x.id===customerId);
-        const name = c ? c.name : '';
-        document.getElementById('context').textContent = 
-          name ? `You are updating the details for: ${name}` : '';
-        document.getElementById('billing-header').textContent =
-          name ? `Billing – ${name}` : 'Billing';
-      });
-
-    // 3) Subscriptions (with paused vs. canceled logic)
-    fetch(`/.netlify/functions/list-subscriptions?customerId=${customerId}`)
-      .then(r=>r.json())
-      .then(subs=>{
-        const planEl = document.getElementById('plan');
-        if (!subs.length) {
-          planEl.innerHTML = '<p>No Retainer Added Yet.</p>';
-          return;
-        }
-        subs.forEach(s=>{
-          // Determine status
-          let statusText, icon;
-          if (s.status === 'canceled') {
-            statusText = 'Canceled'; icon = '🚫';
-          } else if (s.pause_collection) {
-            statusText = 'Paused';   icon = '⚠️';
-          } else {
-            statusText = 'Active';   icon = '✅';
-          }
-          // Render
-          planEl.innerHTML = `
-            <h2>${s.plan.product.name} <span class="status">${icon} ${statusText}</span></h2>
-            <p>${(s.plan.amount/100).toFixed(2)} USD · renews on 
-              ${new Date(s.current_period_end*1000).toLocaleDateString()}
-            </p>
-          `;
-          document.getElementById('pause').onclick = () => {
-            if (!confirm('Pause this retainer?')) return;
-            fetch('/.netlify/functions/pause-subscription', {
-              method:'POST',
-              body: JSON.stringify({ subscriptionId: s.id })
-            }).then(()=>location.reload());
-          };
-          document.getElementById('cancel').onclick = () => {
-            if (!confirm('Cancel this retainer?')) return;
-            fetch('/.netlify/functions/cancel-subscription', {
-              method:'POST',
-              body: JSON.stringify({ subscriptionId: s.id })
-            }).then(()=>location.reload());
-          };
-        });
-      });
-
-    // 4) Load payment methods + default badge + “Set as default” & “Remove”
-    async function loadPMs(){
-      const { paymentMethods, defaultPaymentMethod } = await fetch(
-        `/.netlify/functions/list-payment-methods?customerId=${customerId}`
-      ).then(r=>r.json());
-
-      const container = document.getElementById('pms');
-      container.innerHTML = '';
-
-      paymentMethods.forEach(pm=>{
-        const div = document.createElement('div');
-        div.className = 'pm-item';
-
-        // Brand capitalized
-        const brand = pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
-        const desc  = document.createElement('span');
-        desc.className = 'desc';
-        desc.textContent = `${brand} •••• ${pm.card.last4}`;
-
-        // Expiry
-        const exp = document.createElement('span');
-        exp.className = 'expiry';
-        exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
-        desc.append(exp);
-
-        // Default badge
-        if (pm.id === defaultPaymentMethod) {
-          const badge = document.createElement('span');
-          badge.className = 'default-badge';
-          badge.textContent = 'Default';
-          desc.append(badge);
-        } else {
-          // “Set as default” button
-          const setBtn = document.createElement('button');
-          setBtn.className = 'set-default';
-          setBtn.textContent = 'Set as default';
-          setBtn.onclick = () => {
-            if (!confirm('Make this card the default payment method?')) return;
-            fetch('/.netlify/functions/set-default-method', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ customerId, paymentMethodId: pm.id })
-            }).then(() => loadPMs());
-          };
-          desc.append(setBtn);
-        }
-
-        // Remove “✖” button
-        const rm = document.createElement('button');
-        rm.className = 'remove';
-        rm.textContent = '✖';
-        rm.onclick = () => {
-          if (!confirm('Remove this payment method?')) return;
-          fetch('/.netlify/functions/detach-method', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentMethodId: pm.id })
-          }).then(() => loadPMs());
-        };
-
-        div.append(desc, rm);
-        container.append(div);
-      });
-    }
-    loadPMs();
-
-    // 5) Add new payment method
-    document.getElementById('add-pm').onclick = async () => {
-      const { clientSecret } = await fetch('/.netlify/functions/create-setup-intent', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ customerId })
-      }).then(r=>r.json());
-
-      const area = document.getElementById('new-pm-area');
-      area.innerHTML = `
-        <div class="new-pm-wrapper">
-          <div id="new-card"></div>
-          <button id="save-pm" class="btn-save">Save Card</button>
-        </div>
-      `;
-
-      const elements = stripe.elements();
-      const card2 = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
-      card2.mount('#new-card');
-
-      document.getElementById('save-pm').onclick = async () => {
-        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, {
-          payment_method: { card: card2 }
-        });
-        if (error) return alert(error.message);
-
-        await fetch('/.netlify/functions/attach-method', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({
-            customerId,
-            paymentMethodId: setupIntent.payment_method
-          })
-        });
-        document.getElementById('pm-message').textContent = '✅ Payment method updated!';
-        loadPMs();
-      };
-    };
-
-    // 6) Billing History
-    fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
-      .then(r=>r.json())
-      .then(all => {
-        const hist = document.getElementById('history');
-        const shown = all.slice(0,3);
-        if (!shown.length) hist.innerHTML = '<p>No invoices found.</p>';
-        shown.forEach(i => {
-          const d = new Date(i.created*1000).toLocaleDateString();
-          const s = i.status.charAt(0).toUpperCase()+i.status.slice(1);
-          const div = document.createElement('div');
-          div.className = 'invoice';
-          div.innerHTML = `
-            <a href="${i.hosted_invoice_url}" target="_blank">${d}</a>
-            • $${(i.amount_paid/100).toFixed(2)}
-            • ${s}
-          `;
-          if (s==='Failed') div.innerHTML += ` <em>(Reason: ${i.failure_message})</em>`;
-          hist.append(div);
-        });
-        if (all.length>3) {
-          const more = document.createElement('a');
-          more.href='#'; more.textContent='View more';
-          more.style.display='block'; more.style.marginTop='1em';
-          more.onclick = e => {
-            e.preventDefault(); hist.innerHTML='';
-            all.forEach(i => {
-              const d = new Date(i.created*1000).toLocaleDateString();
-              const s = i.status.charAt(0).toUpperCase()+i.status.slice(1);
-              const div = document.createElement('div');
-              div.className='invoice';
-              div.innerHTML=`
-                <a href="${i.hosted_invoice_url}" target="_blank">${d}</a>
-                • $${(i.amount_paid/100).toFixed(2)}
-                • ${s}
-              `;
-              if (s==='Failed') div.innerHTML += ` <em>(Reason: ${i.failure_message})</em>`;
-              hist.append(div);
-            });
-          };
-          hist.append(more);
-        }
-      });
-  </script>
-</body>
-</html>
+    /* N*
