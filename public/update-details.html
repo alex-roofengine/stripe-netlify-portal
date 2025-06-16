@@ -4,71 +4,63 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Update Client Details</title>
+
   <!-- Inter font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
   <!-- Stripe.js -->
-  <script>
-    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
-  </script>
+  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';</script>
   <script src="https://js.stripe.com/v3/"></script>
+
   <style>
-    /* Reset & base */
-    * { box-sizing: border-box; }
     body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
+    * { box-sizing:border-box; }
     h1,h2 { margin:0; font-weight:600; }
 
-    /* Layout */
     .sidebar {
-      position: fixed; left:0; top:0; width:280px; height:100%;
-      background:#000; color:#fff; padding:2em;
+      position: fixed; top:0; left:0; width:280px; height:100%;
+      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
     }
-    .content {
-      margin-left:280px; padding:2em;
-    }
-
-    /* Sidebar order & spacing */
-    .sidebar h2 { font-size:1.25em; line-height:1.3; }
-    .sidebar p#timestamp { margin:1em 0; }
-    .sidebar p#context { font-size:1em; margin:0 0 1em; }
+    .sidebar img { width:150px; margin-bottom:1em; }
+    .sidebar h2 { font-size:1.25em; line-height:1.3; margin:0 0 1em; }
+    .sidebar p#timestamp { margin:0 0 1em; }
+    .sidebar p#context { margin:0 0 auto; }
     .sidebar a.home {
-      display:block; margin-top:auto;
       color:#fff; text-decoration:none; font-weight:500;
     }
 
-    /* Buttons */
-    #actions { margin-bottom:20px; }
-    .btn {
+    .content { margin-left:280px; padding:2em; }
+    h1 { font-size:1.5em; margin-bottom:1em; }
+
+    #plan { padding:20px 0; border-bottom:1px solid #eee; }
+    #plan h2 { font-size:1.25em; margin-bottom:.5em; }
+    #plan span.status { margin-left:.5em; }
+
+    #actions {
+      margin:20px 0;
+      display:flex; align-items:center;
+    }
+    #actions .btn {
       padding:1em 2em; border:none; border-radius:6px;
       font-weight:600; cursor:pointer; font-size:1em;
-      min-width:160px; /* same width-ish */
+      min-width:140px;
     }
-    .btn + .btn { margin-left:70px; }
+    #actions .btn + .btn { margin-left:70px; }
     .btn-yellow { background:#ffc107; color:#000; }
     .btn-red    { background:#dc3545; color:#fff; }
 
-    /* Divider under actions */
-    hr.divider {
-      border:0; border-top:1px solid #ddd;
-      margin:20px 0;
-    }
-
-    /* Sections */
     .section {
-      padding:20px 0;
-      border-bottom:1px solid #eee;
+      padding:20px 0; border-bottom:1px solid #eee;
     }
     .section:last-of-type { border-bottom:none; }
 
-    /* Payment methods list */
+    /* Payment Methods */
     #pms { max-width:600px; }
     .pm-item {
       display:flex; align-items:center; padding:.75em;
-      border:1px solid #ddd; border-radius:6px; margin-bottom:.75em;
-    }
-    .pm-item img {
-      width:40px; height:auto; margin-right:.75em;
+      border:1px solid #ccc; border-radius:6px; margin-bottom:.75em;
     }
     .pm-item .desc {
       flex:1; font-size:1em; font-weight:500;
@@ -77,29 +69,38 @@
       margin-left:1em; color:#555;
     }
     .pm-item .default-badge {
-      display:inline-block;
       background:#007bff; color:#fff;
       padding:2px 6px; border-radius:4px;
       font-size:.8em; margin-left:.75em;
     }
     .pm-item button {
-      border:none; background:transparent; font-size:1.2em;
-      cursor:pointer; line-height:1;
+      background:transparent; border:none; font-size:1.2em; cursor:pointer;
     }
 
-    /* Responsive */
-    @media (max-width:768px) {
-      .sidebar { position:relative; width:100%; height:auto; padding:1em; }
-      .content { margin-left:0; padding:1em; }
-      #actions .btn { width:100%; margin-left:0; margin-bottom:1em; }
-      .pm-item { flex-direction:column; align-items:flex-start; }
-      .pm-item img { margin-bottom:.5em; }
+    /* New card form */
+    .new-pm-wrapper {
+      border:1px solid #ccc; padding:1em; border-radius:6px;
+      max-width:400px; margin-top:1em;
+    }
+    .btn-save {
+      background:#00D084; color:#fff;
+      border:none; border-radius:6px;
+      padding:1em 2em; font-weight:600;
+      cursor:pointer; margin-top:.5em;
+    }
+
+    @media(max-width:768px){
+      .sidebar{position:relative;width:100%;height:auto;padding:1em;}
+      .content{margin-left:0;padding:1em;}
+      #actions { flex-direction:column; }
+      #actions .btn { width:100%; margin:0 0 1em; }
+      .pm-item{flex-direction:column;align-items:flex-start;}
     }
   </style>
 </head>
 <body>
   <div class="sidebar">
-    <img src="assets/logo.svg" width="150" alt="RoofEngine" />
+    <img src="assets/logo.svg" alt="RoofEngine" />
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp"></p>
     <p id="context"></p>
@@ -109,19 +110,21 @@
   <div class="content">
     <h1>Billing</h1>
 
-    <!-- Subscription & Actions -->
-    <div id="plan" class="section"></div>
+    <!-- Subscription -->
+    <div id="plan"></div>
+
+    <!-- Actions -->
     <div id="actions">
-      <button id="pause" class="btn btn-yellow">⚠️ Pause retainer</button>
+      <button id="pause"  class="btn btn-yellow">⚠️ Pause retainer</button>
       <button id="cancel" class="btn btn-red">🚫 Cancel retainer</button>
     </div>
-    <hr class="divider"/>
 
     <!-- Payment Methods -->
     <div class="section">
       <h2>Payment methods</h2>
       <div id="pms"></div>
       <button id="add-pm" class="btn btn-yellow">+ Add payment method</button>
+      <div id="new-pm-area"></div>
       <p id="pm-message" style="color:#28a745; margin-top:.5em;"></p>
     </div>
 
@@ -133,149 +136,165 @@
   </div>
 
   <script>
-    // -- Sidebar timestamp & context --
-    function updateTime() {
-      const opts = { timeZone:'America/New_York', month:'long', day:'numeric',
-                     hour:'numeric', minute:'2-digit', hour12:true };
+    // Sidebar clock
+    function updateTime(){
+      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
+                   hour:'numeric', minute:'2-digit', hour12:true };
       document.getElementById('timestamp').textContent =
         'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
     }
     updateTime(); setInterval(updateTime,60000);
 
+    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const params = new URLSearchParams(location.search);
     const customerId = params.get('customerId');
 
-    // Fetch customer name for context
-    fetch(`/.netlify/functions/list-customers`)
-      .then(r=>r.json())
-      .then(list=>{
+    // Context
+    fetch('/.netlify/functions/list-customers')
+      .then(r=>r.json()).then(list=>{
         const c = list.find(x=>x.id===customerId);
         document.getElementById('context').textContent =
-          'You are updating the details for: ' + (c? c.name : customerId);
+          c ? `You are updating the details for: ${c.name}` : '';
       });
 
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-
-    // -- Subscriptions & action buttons --
+    // Subscriptions
     fetch(`/.netlify/functions/list-subscriptions?customerId=${customerId}`)
-      .then(r=>r.json())
-      .then(subs=>{
+      .then(r=>r.json()).then(subs=>{
         const planEl = document.getElementById('plan');
-        subs.forEach(s=>{
-          const name = s.plan.product.name;
-          const statusIcon = s.status==='active'? '✅'
-                            : s.status==='paused'? '⚠️'
-                            :                    '🚫';
-          planEl.innerHTML = `
-            <h2>${name} <span>${statusIcon} ${s.status.charAt(0).toUpperCase()+s.status.slice(1)}</span></h2>
-            <div>${(s.plan.amount/100).toFixed(2)} USD · renews on ${new Date(s.current_period_end*1000).toLocaleDateString()}</div>
-          `;
-          document.getElementById('pause').onclick = ()=> {
-            if(!confirm('Pause this retainer?'))return;
-            fetch('/.netlify/functions/pause-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})})
-              .then(()=>location.reload());
-          };
-          document.getElementById('cancel').onclick = ()=> {
-            if(!confirm('Cancel this retainer?'))return;
-            fetch('/.netlify/functions/cancel-subscription',{method:'POST',body:JSON.stringify({subscriptionId:s.id})})
-              .then(()=>location.reload());
-          };
-        });
+        if (!subs.length) {
+          planEl.innerHTML = '<p>No Retainer Added Yet.</p>';
+        } else {
+          subs.forEach(s=>{
+            const name = s.plan.product.name || 'Unnamed';
+            const status = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+            const icon   = s.status==='active'? '✅'
+                         : s.status==='paused'? '⚠️'
+                         :                      '🚫';
+            planEl.innerHTML = `
+              <h2>${name} <span class="status">${icon} ${status}</span></h2>
+              <p>${(s.plan.amount/100).toFixed(2)} USD · renews on ${new Date(s.current_period_end*1000).toLocaleDateString()}</p>
+            `;
+            document.getElementById('pause').onclick = () => {
+              if (!confirm('Pause this retainer?')) return;
+              fetch('/.netlify/functions/pause-subscription',{
+                method:'POST', body: JSON.stringify({subscriptionId:s.id})
+              }).then(()=>location.reload());
+            };
+            document.getElementById('cancel').onclick = () => {
+              if (!confirm('Cancel this retainer?')) return;
+              fetch('/.netlify/functions/cancel-subscription',{
+                method:'POST', body: JSON.stringify({subscriptionId:s.id})
+              }).then(()=>location.reload());
+            };
+          });
+        }
       });
 
-    // -- Payment Methods --
-    function loadPMs() {
+    // Payment Methods
+    function capitalizeWords(str){
+      return str.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+    }
+    function loadPMs(){
       fetch(`/.netlify/functions/list-payment-methods?customerId=${customerId}`)
-        .then(r=>r.json())
-        .then(pms=>{
+        .then(r=>r.json()).then(pms=>{
           const container = document.getElementById('pms');
           container.innerHTML = '';
           pms.forEach(pm=>{
-            const div = document.createElement('div'); div.className='pm-item';
-            const img = document.createElement('img');
-            img.src = `https://stripe.com/img/v3/payments/brand-logos/${pm.card.brand.toLowerCase()}.svg`;
-            const desc = document.createElement('span'); desc.className='desc';
-            desc.textContent = `${pm.card.brand} •••• ${pm.card.last4}`;
-            const exp = document.createElement('span'); exp.className='expiry';
-            exp.textContent = `Expires ${new Date(pm.card.exp_year,pm.card.exp_month-1).toLocaleString('default',{month:'short',year:'numeric'})}`;
+            const div = document.createElement('div');
+            div.className = 'pm-item';
+            const brand = capitalizeWords(pm.card.brand);
+            const desc  = document.createElement('span');
+            desc.className = 'desc';
+            desc.textContent = `${brand} •••• ${pm.card.last4}`;
+            const exp = document.createElement('span');
+            exp.className = 'expiry';
+            exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
             desc.append(exp);
-            if(pm.id===pm.customer?.invoice_settings?.default_payment_method){
-              const badge=document.createElement('span');
-              badge.className='default-badge'; badge.textContent='Default';
+            if (pm.id===pm.customer?.invoice_settings?.default_payment_method){
+              const badge = document.createElement('span');
+              badge.className = 'default-badge';
+              badge.textContent = 'Default';
               desc.append(badge);
             }
-            const btn=document.createElement('button'); btn.textContent='✖';
-            btn.onclick=()=>fetch('/.netlify/functions/detach-method',{method:'POST',body:pm.id})
-                            .then(()=>loadPMs());
-            div.append(img,desc,btn);
+            const btn = document.createElement('button');
+            btn.textContent = '✖';
+            btn.onclick = ()=>fetch('/.netlify/functions/detach-method',{
+              method:'POST', body: pm.id
+            }).then(()=>loadPMs());
+            div.append(desc, btn);
             container.append(div);
           });
         });
     }
     loadPMs();
 
+    // Add new PM
     document.getElementById('add-pm').onclick = async ()=>{
       const { clientSecret } = await fetch('/.netlify/functions/create-setup-intent',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({customerId})
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ customerId })
       }).then(r=>r.json());
-      // mount a one-off card element & save
-      const holder = document.createElement('div');
-      holder.innerHTML = `
-        <div id="new-card" style="max-width:400px;margin:1em 0;"></div>
-        <button id="save-pm" class="btn btn-yellow">Save Card</button>
+      const area = document.getElementById('new-pm-area');
+      area.innerHTML = `
+        <div class="new-pm-wrapper">
+          <div id="new-card"></div>
+          <button id="save-pm" class="btn-save">Save Card</button>
+        </div>
       `;
-      document.getElementById('pms').append(holder);
       const elements = stripe.elements();
-      const card = elements.create('card',{style:{base:{fontFamily:'Inter, sans-serif'}}});
-      card.mount('#new-card');
+      const card2 = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+      card2.mount('#new-card');
       document.getElementById('save-pm').onclick = async ()=>{
-        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{payment_method:{card}});
-        if(error) return alert(error.message);
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card:card2 } });
+        if (error) return alert(error.message);
         await fetch('/.netlify/functions/attach-method',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({customerId,paymentMethodId:setupIntent.payment_method})
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method })
         });
-        document.getElementById('pm-message').textContent='✅ Payment method updated!';
+        document.getElementById('pm-message').textContent = '✅ Payment method updated!';
         loadPMs();
       };
     };
 
-    // -- Billing history --
+    // Billing History
     fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
-      .then(r=>r.json())
-      .then(all=>{
-        const hist=document.getElementById('history');
-        const toShow=all.slice(0,3);
-        toShow.forEach(i=>{
-          const date=new Date(i.created*1000).toLocaleDateString();
-          const status=i.status.charAt(0).toUpperCase()+i.status.slice(1);
-          const div=document.createElement('div'); div.className='invoice';
+      .then(r=>r.json()).then(all=>{
+        const hist = document.getElementById('history');
+        const slice = all.slice(0,3);
+        if (!slice.length) hist.innerHTML = '<p>No invoices found.</p>';
+        slice.forEach(i=>{
+          const date = new Date(i.created*1000).toLocaleDateString();
+          const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
+          const div = document.createElement('div');
+          div.className='invoice';
           div.innerHTML=`
             <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
             • $${(i.amount_paid/100).toFixed(2)}
             • ${status}
-            ${status==='Failed'?`<em>(Reason: ${i.failure_message})</em>`:''}
           `;
+          if (status==='Failed') {
+            div.innerHTML+=` <em>(Reason: ${i.failure_message})</em>`;
+          }
           hist.append(div);
         });
-        if(all.length>3){
-          const more=document.createElement('a');
+        if (all.length>3){
+          const more = document.createElement('a');
           more.href='#'; more.textContent='View more';
           more.style.display='block'; more.style.marginTop='1em';
-          more.onclick=e=>{
+          more.onclick = e=>{
             e.preventDefault(); hist.innerHTML=''; all.forEach(i=>{
-              const date=new Date(i.created*1000).toLocaleDateString();
-              const status=i.status.charAt(0).toUpperCase()+i.status.slice(1);
-              const div=document.createElement('div'); div.className='invoice';
+              const date = new Date(i.created*1000).toLocaleDateString();
+              const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
+              const div = document.createElement('div');
+              div.className='invoice';
               div.innerHTML=`
                 <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
                 • $${(i.amount_paid/100).toFixed(2)}
                 • ${status}
-                ${status==='Failed'?`<em>(Reason: ${i.failure_message})</em>`:''}
               `;
+              if (status==='Failed') div.innerHTML+=` <em>(Reason: ${i.failure_message})</em>`;
               hist.append(div);
-            }); 
+            });
           };
           hist.append(more);
         }
