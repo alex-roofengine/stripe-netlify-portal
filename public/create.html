@@ -6,73 +6,87 @@
   <title>Create New Client</title>
 
   <!-- Inter font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <!-- Stripe.js -->
-  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';</script>
+  <script>
+    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
+  </script>
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
+    /* Reset & base */
     * { box-sizing: border-box; }
+    body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
 
+    /* Sidebar */
     .sidebar {
-      position: fixed; top:0; left:0; width:280px; height:100%;
-      background:#000; color:#fff; padding:2em;
+      position: fixed; top: 0; left: 0; width: 280px; height: 100%;
+      background: #000; color: #fff; padding: 2em; display: flex; flex-direction: column;
     }
-    .sidebar img { width:150px; }
-    .sidebar h2 { margin:1em 0 0; font-size:1.25em; line-height:1.3; }
-    .sidebar p#timestamp { margin:1em 0; }
+    .sidebar img { width: 150px; margin-bottom: 1em; }
+    .sidebar h2 {
+      margin: 0 0 1em;
+      font-size: 1.25em;
+      line-height: 1.3;
+    }
+    .sidebar p#timestamp {
+      margin: 0 0 auto;
+    }
     .sidebar a.home {
-      display:block; margin-top:auto; color:#fff;
-      text-decoration:none; font-weight:500;
+      color: #fff; text-decoration: none; font-weight: 500;
     }
 
-    .content { margin-left:280px; padding:2em; }
-    h1 { font-size:1.5em; margin-top:0; }
-    h2 { font-size:1.25em; margin:0 0 1em; }
+    /* Content */
+    .content { margin-left: 280px; padding: 2em; }
+    h1 { margin: 0 0 0.5em; font-size: 1.5em; }
+    h2 { margin: 0 0 1em; font-size: 1.25em; }
 
+    /* Form grid */
     .form-grid {
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:1em;
-      max-width:800px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1em;
+      max-width: 800px;
     }
-    .form-grid label { display:block; margin-bottom:.25em; font-weight:500; }
+    .form-grid label { display: block; margin-bottom: .25em; font-weight: 500; }
     .form-grid input {
-      width:100%; padding:.5em; font-size:1em;
-      border:1px solid #ccc; border-radius:4px;
+      width: 100%; padding: .5em; font-size: 1em;
+      border: 1px solid #ccc; border-radius: 4px;
     }
 
+    /* Stripe card element */
     #card-element {
-      border:1px solid #ccc; padding:1em;
-      border-radius:6px; margin-top:.5em;
+      border: 1px solid #ccc; padding: 1em;
+      border-radius: 6px; margin-top: .5em;
     }
 
+    /* Submit button */
     .btn-green {
-      background:#28a745; color:#fff;
-      border:none; border-radius:6px;
-      padding:1em 2em; font-weight:600;
-      cursor:pointer; margin-top:1em;
+      background: #28a745; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 1em 2em; font-weight: 600;
+      cursor: pointer; margin-top: 1em;
     }
 
+    /* Error message */
     .error {
-      color:#dc3545; margin-top:.5em;
+      color: #dc3545; margin-top: .5em;
     }
 
-    @media (max-width:768px) {
-      .sidebar { position:relative; width:100%; height:auto; padding:1em; }
-      .content { margin-left:0; padding:1em; }
-      .form-grid { display:block; }
-      .form-grid input, #card-element, .btn-green { width:100%; }
+    @media (max-width: 768px) {
+      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
+      .content { margin-left: 0; padding: 1em; }
+      .form-grid { display: block; }
+      .form-grid input, #card-element, .btn-green { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="sidebar">
-    <img src="assets/logo.svg" alt="RoofEngine" />
+    <img src="assets/logo.svg" alt="RoofEngine Logo" />
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp"></p>
     <a href="index.html" class="home">← Home</a>
@@ -81,7 +95,7 @@
   <div class="content">
     <h1>Billing</h1>
     <h2>Create a new customer:</h2>
-    <form id="cust-form" novalidate>
+    <form id="cust-form">
       <div class="form-grid">
         <div>
           <label for="name">Company Name:</label>
@@ -115,70 +129,112 @@
           <label>Payment Method:</label>
           <div id="card-element"></div>
         </div>
-        <div style="grid-column:1/-1">
-          <button type="submit" id="submit" class="btn-green">Submit</button>
-        </div>
       </div>
-      <p id="message" class="error"></p>
+      <button type="submit" id="submit" class="btn-green">Submit</button>
     </form>
+    <p id="message" class="error"></p>
   </div>
 
   <script>
-    // Sidebar clock
-    function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
-                   hour:'numeric', minute:'2-digit', hour12:true };
+    // 1) Sidebar clock
+    function updateTime() {
+      const opts = {
+        timeZone: 'America/New_York',
+        month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+        hour12: true
+      };
       document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+        'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
     }
-    updateTime(); setInterval(updateTime,60000);
+    updateTime();
+    setInterval(updateTime, 60000);
 
-    // Stripe Elements + validation
+    // 2) Stripe setup
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const elements = stripe.elements();
-    const card  = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+    const card = elements.create('card', {
+      style: { base: { fontFamily: 'Inter, sans-serif' } }
+    });
     card.mount('#card-element');
 
     let cardComplete = false;
-    card.on('change', event => {
+    card.on('change', ev => {
       const msg = document.getElementById('message');
-      if (event.error) msg.textContent = event.error.message;
-      else              msg.textContent = '';
-      cardComplete = event.complete;
+      if (ev.error) {
+        msg.textContent = ev.error.message;
+      } else {
+        msg.textContent = '';
+      }
+      cardComplete = ev.complete;
     });
 
-    // Form submission
+    // 3) Form submission & validation
     document.getElementById('cust-form').addEventListener('submit', async e => {
       e.preventDefault();
       const form = e.target;
       const msg  = document.getElementById('message');
-      msg.textContent = '';
+      msg.style.color = '#dc3545';
+      msg.textContent  = '';
 
-      // HTML5 fields
+      // Validate fields
       if (!form.checkValidity()) {
         msg.textContent = 'Please fill out all required fields.';
         return;
       }
-      // Card details
+      // Validate card
       if (!cardComplete) {
-        msg.textContent = 'Please complete your card details.';
+        msg.textContent = 'Please complete the card details.';
         return;
       }
 
+      // Disable to prevent double-click
       document.getElementById('submit').disabled = true;
 
-      // 1) Create customer + SetupIntent
-      const payload = {
-        name: form.name.value.trim(),
-        email: form.email.value.trim(),
-        phone: form.phone.value.trim(),
-        address: {
-          line1: form.addr1.value.trim(),
-          city: form.city.value.trim(),
-          state: form.region.value.trim(),
-          postal_code: form.postal_code.value.trim(),
-          country: 'US'
-        }
-      };
-      const resp = await fetch('/.netlify/functions/create-customer', {
-        method: 'POST',
+      try {
+        // 4) Create customer + SetupIntent
+        const payload = {
+          name: form.name.value.trim(),
+          email: form.email.value.trim(),
+          phone: form.phone.value.trim(),
+          address: {
+            line1: form.addr1.value.trim(),
+            city: form.city.value.trim(),
+            state: form.region.value.trim(),
+            postal_code: form.postal_code.value.trim(),
+            country: 'US'
+          }
+        };
+        const res1 = await fetch('/.netlify/functions/create-customer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res1.ok) throw new Error('Could not create customer');
+        const { customerId, clientSecret } = await res1.json();
+
+        // 5) Confirm card setup
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, {
+          payment_method: { card }
+        });
+        if (error) throw error;
+
+        // 6) Attach payment method
+        await fetch('/.netlify/functions/attach-method', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method })
+        });
+
+        // Success!
+        msg.style.color = '#28a745';
+        msg.textContent   = '✅ Customer created and card saved!';
+      } catch (err) {
+        // On any error, re-enable button and show the message
+        document.getElementById('submit').disabled = false;
+        msg.textContent = err.message || 'An error occurred.';
+      }
+    });
+  </script>
+</body>
+</html>
