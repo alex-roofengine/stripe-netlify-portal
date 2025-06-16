@@ -11,96 +11,99 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- Stripe.js -->
-  <script>window.STRIPE_PUBLISHABLE_KEY='pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';</script>
+  <script>
+    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
+  </script>
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
-    * { box-sizing:border-box; }
-    h1,h2 { margin:0; font-weight:600; }
+    /* Reset & base */
+    * { box-sizing: border-box; }
+    body, html { margin: 0; padding: 0; height: 100%; font-family:'Inter', sans-serif; }
+    h1,h2 { margin: 0; font-weight: 600; }
 
+    /* Sidebar */
     .sidebar {
-      position: fixed; top:0; left:0; width:280px; height:100%;
-      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
+      position: fixed; left: 0; top: 0;
+      width: 280px; height: 100%;
+      background: #000; color: #fff;
+      padding: 2em; display: flex; flex-direction: column;
     }
-    .sidebar img { width:150px; margin-bottom:1em; }
-    .sidebar h2 { font-size:1.25em; line-height:1.3; margin:0 0 1em; }
-    .sidebar p#timestamp { margin:0 0 1em; }
-    .sidebar p#context { margin:0 0 auto; }
+    .sidebar img { width: 150px; margin-bottom: 1em; }
+    .sidebar h2 { font-size: 1.25em; line-height: 1.3; margin-bottom: 1em; }
+    .sidebar p#timestamp { margin-bottom: 1em; }
+    .sidebar p#context { margin-bottom: auto; }
     .sidebar a.home {
-      color:#fff; text-decoration:none; font-weight:500;
+      color: #fff; text-decoration: none; font-weight: 500;
     }
 
-    .content { margin-left:280px; padding:2em; }
-    h1 { font-size:1.5em; margin-bottom:1em; }
+    /* Content */
+    .content { margin-left: 280px; padding: 2em; }
+    h1 { font-size: 1.5em; margin-bottom: 1em; }
 
-    #plan { padding:20px 0; border-bottom:1px solid #eee; }
-    #plan h2 { font-size:1.25em; margin-bottom:.5em; }
-    #plan span.status { margin-left:.5em; }
+    /* Plan & Actions */
+    #plan { padding: 20px 0; border-bottom: 1px solid #eee; }
+    #plan h2 { font-size: 1.25em; margin-bottom: .5em; }
+    #plan span.status { margin-left: .5em; }
 
-    #actions {
-      margin:20px 0;
-      display:flex; align-items:center;
-    }
+    #actions { display: flex; margin: 20px 0; }
     #actions .btn {
-      padding:1em 2em; border:none; border-radius:6px;
-      font-weight:600; cursor:pointer; font-size:1em;
-      min-width:140px;
+      padding: 1em 2em; border: none; border-radius: 6px;
+      font-weight: 600; font-size: 1em; cursor: pointer;
+      min-width: 140px;
     }
-    #actions .btn + .btn { margin-left:70px; }
-    .btn-yellow { background:#ffc107; color:#000; }
-    .btn-red    { background:#dc3545; color:#fff; }
+    #actions .btn + .btn { margin-left: 70px; }
+    .btn-yellow { background: #ffc107; color: #000; }
+    .btn-red    { background: #dc3545; color: #fff; }
 
+    /* Sections */
     .section {
-      padding:20px 0; border-bottom:1px solid #eee;
+      padding: 20px 0; border-bottom: 1px solid #eee;
     }
-    .section:last-of-type { border-bottom:none; }
+    .section:last-of-type { border-bottom: none; }
 
     /* Payment Methods */
-    #pms { max-width:600px; }
+    #pms { max-width: 600px; }
     .pm-item {
-      display:flex; align-items:center; padding:.75em;
-      border:1px solid #ccc; border-radius:6px; margin-bottom:.75em;
+      display: flex; align-items: center;
+      padding: .75em; border: 1px solid #ccc;
+      border-radius: 6px; margin-bottom: .75em;
     }
     .pm-item .desc {
-      flex:1; font-size:1em; font-weight:500;
+      flex: 1; font-size: 1em; font-weight: 500;
     }
     .pm-item .desc .expiry {
-      margin-left:1em; color:#555;
+      margin-left: 1em; color: #555;
     }
     .pm-item .default-badge {
-      background:#007bff; color:#fff;
-      padding:2px 6px; border-radius:4px;
-      font-size:.8em; margin-left:.75em;
+      background: #007bff; color: #fff;
+      padding: 2px 6px; border-radius: 4px;
+      font-size: .8em; margin-left: .75em;
     }
     .pm-item button {
-      background:transparent; border:none; font-size:1.2em; cursor:pointer;
+      background: transparent; border: none;
+      font-size: 1.2em; cursor: pointer;
     }
 
-    /* New card form */
+    /* New Card Form */
     .new-pm-wrapper {
-      border:1px solid #ccc; padding:1em; border-radius:6px;
-      max-width:400px; margin-top:1em;
-    }
-    .btn-newpayment {
-      background:#F3E72F; color:#fff;
-      border:none; border-radius:6px;
-      padding:1em 2em; font-weight:600;
-      cursor:pointer; margin-top:.5em;
+      border: 1px solid #ccc; padding: 1em;
+      border-radius: 6px; max-width: 400px; margin-top: 1em;
     }
     .btn-save {
-      background:#00D084; color:#fff;
-      border:none; border-radius:6px;
-      padding:1em 2em; font-weight:600;
-      cursor:pointer; margin-top:.5em;
+      background: #00D084; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 1em 2em; font-weight: 600;
+      cursor: pointer; margin-top: .5em;
     }
 
-    @media(max-width:768px){
-      .sidebar{position:relative;width:100%;height:auto;padding:1em;}
-      .content{margin-left:0;padding:1em;}
-      #actions { flex-direction:column; }
-      #actions .btn { width:100%; margin:0 0 1em; }
-      .pm-item{flex-direction:column;align-items:flex-start;}
+    /* Responsive */
+    @media (max-width: 768px) {
+      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
+      .content { margin-left: 0; padding: 1em; }
+      #actions { flex-direction: column; }
+      #actions .btn { width: 100%; margin-bottom: 1em; }
+      .pm-item { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
@@ -129,7 +132,7 @@
     <div class="section">
       <h2>Payment methods</h2>
       <div id="pms"></div>
-      <button id="add-pm" class="btn newpayment">+ Add payment method</button>
+      <button id="add-pm" class="btn btn-yellow">+ Add payment method</button>
       <div id="new-pm-area"></div>
       <p id="pm-message" style="color:#28a745; margin-top:.5em;"></p>
     </div>
@@ -144,12 +147,17 @@
   <script>
     // Sidebar clock
     function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
-                   hour:'numeric', minute:'2-digit', hour12:true };
+      const opts = {
+        timeZone: 'America/New_York',
+        month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+        hour12: true
+      };
       document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+        'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
     }
-    updateTime(); setInterval(updateTime,60000);
+    updateTime();
+    setInterval(updateTime, 60000);
 
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const params = new URLSearchParams(location.search);
@@ -157,7 +165,8 @@
 
     // Context
     fetch('/.netlify/functions/list-customers')
-      .then(r=>r.json()).then(list=>{
+      .then(r=>r.json())
+      .then(list=>{
         const c = list.find(x=>x.id===customerId);
         document.getElementById('context').textContent =
           c ? `You are updating the details for: ${c.name}` : '';
@@ -165,14 +174,15 @@
 
     // Subscriptions
     fetch(`/.netlify/functions/list-subscriptions?customerId=${customerId}`)
-      .then(r=>r.json()).then(subs=>{
+      .then(r=>r.json())
+      .then(subs=>{
         const planEl = document.getElementById('plan');
         if (!subs.length) {
           planEl.innerHTML = '<p>No Retainer Added Yet.</p>';
         } else {
           subs.forEach(s=>{
             const name = s.plan.product.name || 'Unnamed';
-            const status = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+            const status = s.status.charAt(0).toUpperCase()+s.status.slice(1);
             const icon   = s.status==='active'? '✅'
                          : s.status==='paused'? '⚠️'
                          :                      '🚫';
@@ -183,63 +193,79 @@
             document.getElementById('pause').onclick = () => {
               if (!confirm('Pause this retainer?')) return;
               fetch('/.netlify/functions/pause-subscription',{
-                method:'POST', body: JSON.stringify({subscriptionId:s.id})
+                method:'POST',
+                body: JSON.stringify({ subscriptionId: s.id })
               }).then(()=>location.reload());
             };
             document.getElementById('cancel').onclick = () => {
               if (!confirm('Cancel this retainer?')) return;
               fetch('/.netlify/functions/cancel-subscription',{
-                method:'POST', body: JSON.stringify({subscriptionId:s.id})
+                method:'POST',
+                body: JSON.stringify({ subscriptionId: s.id })
               }).then(()=>location.reload());
             };
           });
         }
       });
 
-    // Payment Methods
-    function capitalizeWords(str){
-      return str.split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+    // Payment Methods Loader
+    async function loadPMs(){
+      // now returns both paymentMethods & defaultPaymentMethod
+      const { paymentMethods, defaultPaymentMethod } = await fetch(
+        `/.netlify/functions/list-payment-methods?customerId=${customerId}`
+      ).then(r=>r.json());
+
+      const container = document.getElementById('pms');
+      container.innerHTML = '';
+
+      paymentMethods.forEach(pm=>{
+        const div = document.createElement('div');
+        div.className = 'pm-item';
+
+        // Brand name capitalized
+        const brand = pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
+        const desc  = document.createElement('span');
+        desc.className = 'desc';
+        desc.textContent = `${brand} •••• ${pm.card.last4}`;
+
+        // Expiry
+        const exp = document.createElement('span');
+        exp.className = 'expiry';
+        exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
+        desc.append(exp);
+
+        // DEFAULT badge
+        if (pm.id === defaultPaymentMethod) {
+          const badge = document.createElement('span');
+          badge.className = 'default-badge';
+          badge.textContent = 'Default';
+          desc.append(badge);
+        }
+
+        // Remove button
+        const btn = document.createElement('button');
+        btn.textContent = '✖';
+        btn.onclick = () => fetch('/.netlify/functions/detach-method',{
+          method:'POST',
+          body: pm.id
+        }).then(()=>loadPMs());
+
+        div.append(desc, btn);
+        container.append(div);
+      });
     }
-    function loadPMs(){
-      fetch(`/.netlify/functions/list-payment-methods?customerId=${customerId}`)
-        .then(r=>r.json()).then(pms=>{
-          const container = document.getElementById('pms');
-          container.innerHTML = '';
-          pms.forEach(pm=>{
-            const div = document.createElement('div');
-            div.className = 'pm-item';
-            const brand = capitalizeWords(pm.card.brand);
-            const desc  = document.createElement('span');
-            desc.className = 'desc';
-            desc.textContent = `${brand} •••• ${pm.card.last4}`;
-            const exp = document.createElement('span');
-            exp.className = 'expiry';
-            exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
-            desc.append(exp);
-            if (pm.id===pm.customer?.invoice_settings?.default_payment_method){
-              const badge = document.createElement('span');
-              badge.className = 'default-badge';
-              badge.textContent = 'Default';
-              desc.append(badge);
-            }
-            const btn = document.createElement('button');
-            btn.textContent = '✖';
-            btn.onclick = ()=>fetch('/.netlify/functions/detach-method',{
-              method:'POST', body: pm.id
-            }).then(()=>loadPMs());
-            div.append(desc, btn);
-            container.append(div);
-          });
-        });
-    }
+
+    // Initial load
     loadPMs();
 
     // Add new PM
     document.getElementById('add-pm').onclick = async ()=>{
       const { clientSecret } = await fetch('/.netlify/functions/create-setup-intent',{
-        method:'POST', headers:{'Content-Type':'application/json'},
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify({ customerId })
       }).then(r=>r.json());
+
       const area = document.getElementById('new-pm-area');
       area.innerHTML = `
         <div class="new-pm-wrapper">
@@ -247,14 +273,21 @@
           <button id="save-pm" class="btn-save">Save Card</button>
         </div>
       `;
+
       const elements = stripe.elements();
       const card2 = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
       card2.mount('#new-card');
+
       document.getElementById('save-pm').onclick = async ()=>{
-        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card:card2 } });
-        if (error) return alert(error.message);
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{
+          payment_method:{ card: card2 }
+        });
+        if (error) {
+          return alert(error.message);
+        }
         await fetch('/.netlify/functions/attach-method',{
-          method:'POST', headers:{'Content-Type':'application/json'},
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
           body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method })
         });
         document.getElementById('pm-message').textContent = '✅ Payment method updated!';
@@ -264,41 +297,51 @@
 
     // Billing History
     fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
-      .then(r=>r.json()).then(all=>{
+      .then(r=>r.json())
+      .then(all=>{
         const hist = document.getElementById('history');
-        const slice = all.slice(0,3);
-        if (!slice.length) hist.innerHTML = '<p>No invoices found.</p>';
-        slice.forEach(i=>{
-          const date = new Date(i.created*1000).toLocaleDateString();
-          const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
-          const div = document.createElement('div');
-          div.className='invoice';
-          div.innerHTML=`
-            <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
-            • $${(i.amount_paid/100).toFixed(2)}
-            • ${status}
-          `;
-          if (status==='Failed') {
-            div.innerHTML+=` <em>(Reason: ${i.failure_message})</em>`;
-          }
-          hist.append(div);
-        });
-        if (all.length>3){
+        const shown = all.slice(0,3);
+        if (!shown.length) {
+          hist.innerHTML = '<p>No invoices found.</p>';
+        } else {
+          shown.forEach(i=>{
+            const date = new Date(i.created*1000).toLocaleDateString();
+            const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
+            const div = document.createElement('div');
+            div.className = 'invoice';
+            div.innerHTML = `
+              <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+              • $${(i.amount_paid/100).toFixed(2)}
+              • ${status}
+            `;
+            if (status==='Failed') {
+              div.innerHTML += `<em>(Reason: ${i.failure_message})</em>`;
+            }
+            hist.append(div);
+          });
+        }
+        if (all.length>3) {
           const more = document.createElement('a');
-          more.href='#'; more.textContent='View more';
-          more.style.display='block'; more.style.marginTop='1em';
-          more.onclick = e=>{
-            e.preventDefault(); hist.innerHTML=''; all.forEach(i=>{
+          more.href='#';
+          more.textContent='View more';
+          more.style.display='block';
+          more.style.marginTop='1em';
+          more.onclick = e => {
+            e.preventDefault();
+            hist.innerHTML = '';
+            all.forEach(i=>{
               const date = new Date(i.created*1000).toLocaleDateString();
               const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
               const div = document.createElement('div');
-              div.className='invoice';
-              div.innerHTML=`
+              div.className = 'invoice';
+              div.innerHTML = `
                 <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
                 • $${(i.amount_paid/100).toFixed(2)}
                 • ${status}
               `;
-              if (status==='Failed') div.innerHTML+=` <em>(Reason: ${i.failure_message})</em>`;
+              if (status==='Failed') {
+                div.innerHTML += `<em>(Reason: ${i.failure_message})</em>`;
+              }
               hist.append(div);
             });
           };
