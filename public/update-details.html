@@ -12,7 +12,8 @@
 
   <!-- Stripe.js -->
   <script>
-    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
+    window.STRIPE_PUBLISHABLE_KEY =
+      'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
   </script>
   <script src="https://js.stripe.com/v3/"></script>
 
@@ -145,8 +146,10 @@
   <script>
     // Sidebar clock
     function updateTime(){
-      const opts = { timeZone:'America/New_York', month:'long', day:'numeric',
-                     hour:'numeric', minute:'2-digit', hour12:true };
+      const opts = {
+        timeZone:'America/New_York', month:'long', day:'numeric',
+        hour:'numeric', minute:'2-digit', hour12:true
+      };
       document.getElementById('timestamp').textContent =
         'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
     }
@@ -166,16 +169,19 @@
           name ? `Billing – ${name}` : 'Billing';
       });
 
-    // Subscriptions → pick the MOST RECENT one only
+    // Subscriptions → pick only the MOST RECENT one
     fetch(`/.netlify/functions/list-subscriptions?customerId=${customerId}`)
       .then(r=>r.json()).then(subs=>{
         const planEl = document.getElementById('plan');
+
         if (!subs.length) {
           planEl.innerHTML = '<p>No Retainer Added Yet.</p>';
           return;
         }
-        // sort by created desc and pick first
+
+        // sort by created timestamp desc, take first
         const latest = subs.sort((a,b)=> b.created - a.created)[0];
+
         let statusText, icon;
         if (latest.status === 'canceled') {
           statusText = 'Canceled'; icon = '🚫';
@@ -184,6 +190,7 @@
         } else {
           statusText = 'Active';   icon = '✅';
         }
+
         planEl.innerHTML = `
           <h2>${latest.plan.product.name}
             <span class="status">${icon} ${statusText}</span>
@@ -192,6 +199,7 @@
             ${new Date(latest.current_period_end*1000).toLocaleDateString()}
           </p>
         `;
+
         document.getElementById('pause').onclick = ()=> {
           if (!confirm('Pause this retainer?')) return;
           fetch('/.netlify/functions/pause-subscription',{
@@ -208,8 +216,145 @@
         };
       });
 
-    // (rest of your code for payment methods & history remains unchanged)
-    // …
+    // Payment Methods Loader (unchanged)
+    async function loadPMs(){
+      const { paymentMethods, defaultPaymentMethod } = await fetch(
+        `/.netlify/functions/list-payment-methods?customerId=${customerId}`
+      ).then(r=>r.json());
+
+      const container = document.getElementById('pms');
+      container.innerHTML = '';
+
+      paymentMethods.forEach(pm=>{
+        const div = document.createElement('div');
+        div.className = 'pm-item';
+
+        const brand = pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
+        const desc  = document.createElement('span');
+        desc.className = 'desc';
+        desc.textContent = `${brand} •••• ${pm.card.last4}`;
+
+        const exp = document.createElement('span');
+        exp.className = 'expiry';
+        exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
+        desc.append(exp);
+
+        if (pm.id === defaultPaymentMethod) {
+          const badge = document.createElement('span');
+          badge.className = 'default-badge';
+          badge.textContent = 'Default';
+          desc.append(badge);
+        } else {
+          const setBtn = document.createElement('button');
+          setBtn.className = 'set-default';
+          setBtn.textContent = 'Set as default';
+          setBtn.onclick = ()=> {
+            if (!confirm('Make this card the default payment method?')) return;
+            fetch('/.netlify/functions/set-default-method',{
+              method:'POST',
+              headers:{ 'Content-Type':'application/json' },
+              body: JSON.stringify({ customerId, paymentMethodId: pm.id })
+            }).then(()=>loadPMs());
+          };
+          desc.append(setBtn);
+        }
+
+        const rm = document.createElement('button');
+        rm.className = 'remove';
+        rm.textContent = '✖';
+        rm.onclick = ()=> {
+          if (!confirm('Remove this payment method?')) return;
+          fetch('/.netlify/functions/detach-method',{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({ paymentMethodId: pm.id })
+          }).then(()=>loadPMs());
+        };
+
+        div.append(desc, rm);
+        container.append(div);
+      });
+    }
+    loadPMs();
+
+    // Add new PM (unchanged)
+    document.getElementById('add-pm').onclick = async ()=>{
+      const { clientSecret } = await fetch('/.netlify/functions/create-setup-intent',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ customerId })
+      }).then(r=>r.json());
+
+      const area = document.getElementById('new-pm-area');
+      area.innerHTML = `
+        <div class="new-pm-wrapper">
+          <div id="new-card"></div>
+          <button id="save-pm" class="btn-save">Save Card</button>
+        </div>
+      `;
+
+      const elements = stripe.elements();
+      const card2 = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+      card2.mount('#new-card');
+
+      document.getElementById('save-pm').onclick = async ()=>{
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{
+          payment_method:{ card: card2 }
+        });
+        if (error) { alert(error.message); return; }
+        await fetch('/.netlify/functions/attach-method',{
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method })
+        });
+        document.getElementById('pm-message').textContent = '✅ Payment method updated!';
+        loadPMs();
+      };
+    };
+
+    // Billing History w/ status badges (unchanged)
+    fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
+      .then(r=>r.json())
+      .then(all=>{
+        const hist = document.getElementById('history');
+        const shown = all.slice(0,3);
+        if (!shown.length) hist.innerHTML = '<p>No invoices found.</p>';
+        shown.forEach(i=>{
+          const date    = new Date(i.created*1000).toLocaleDateString();
+          const success = i.status === 'paid';
+          const div     = document.createElement('div');
+          div.className = 'invoice';
+          div.innerHTML = `
+            <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+            • $${(i.amount_paid/100).toFixed(2)}
+            <span class="badge ${success?'success':'failed'}">
+              ${success?'Success':'Failed'}
+            </span>`;
+          hist.append(div);
+        });
+        if (all.length>3){
+          const more = document.createElement('a');
+          more.href='#'; more.textContent='View more';
+          more.style.display='block'; more.style.marginTop='1em';
+          more.onclick = e => {
+            e.preventDefault(); hist.innerHTML='';
+            all.forEach(i=>{
+              const date    = new Date(i.created*1000).toLocaleDateString();
+              const success = i.status === 'paid';
+              const div     = document.createElement('div');
+              div.className='invoice';
+              div.innerHTML=`
+                <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+                • $${(i.amount_paid/100).toFixed(2)}
+                <span class="badge ${success?'success':'failed'}">
+                  ${success?'Success':'Failed'}
+                </span>`;
+              hist.append(div);
+            });
+          };
+          hist.append(more);
+        }
+      });
   </script>
 </body>
 </html>
