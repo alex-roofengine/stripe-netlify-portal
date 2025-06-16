@@ -291,4 +291,58 @@
       card2.mount('#new-card');
       document.getElementById('save-pm').onclick = async ()=>{
         const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card: card2 } });
-        if (error) { alert(error.message
+        if (error) { alert(error.message); return; }
+        await fetch('/.netlify/functions/attach-method',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method }) });
+        document.getElementById('pm-message').textContent = '✅ Payment method updated!';
+        loadPMs();
+      };
+    };
+
+    // Billing History w/ status badges
+    fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
+      .then(r=>r.json())
+      .then(all=>{
+        const hist = document.getElementById('history');
+        const shown = all.slice(0,3);
+        if (!shown.length) hist.innerHTML = '<p>No invoices found.</p>';
+        shown.forEach(i=>{
+          const date = new Date(i.created*1000).toLocaleDateString();
+          const success = i.status === 'paid';
+          const div = document.createElement('div');
+          div.className = 'invoice';
+          div.innerHTML = `
+            <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+            • $${(i.amount_paid/100).toFixed(2)}
+            <span class="badge ${success?'success':'failed'}">
+              ${success?'Success':'Failed'}
+            </span>
+          `;
+          hist.append(div);
+        });
+        if (all.length>3) {
+          const more = document.createElement('a');
+          more.href='#'; more.textContent='View more';
+          more.style.display='block'; more.style.marginTop='1em';
+          more.onclick = e=>{
+            e.preventDefault(); hist.innerHTML = '';
+            all.forEach(i=>{
+              const date = new Date(i.created*1000).toLocaleDateString();
+              const success = i.status === 'paid';
+              const div = document.createElement('div');
+              div.className = 'invoice';
+              div.innerHTML = `
+                <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+                • $${(i.amount_paid/100).toFixed(2)}
+                <span class="badge ${success?'success':'failed'}">
+                  ${success?'Success':'Failed'}
+                </span>
+              `;
+              hist.append(div);
+            });
+          };
+          hist.append(more);
+        }
+      });
+  </script>
+</body>
+</html>
