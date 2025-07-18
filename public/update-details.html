@@ -22,7 +22,6 @@
     body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     h1,h2 { margin:0; font-weight:600; }
 
-    /* Sidebar */
     .sidebar {
       position:fixed; top:0; left:0; width:280px; height:100%;
       background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
@@ -33,11 +32,9 @@
     .sidebar p#context { margin-bottom:auto; }
     .sidebar a.home { color:#fff; text-decoration:none; font-weight:500; }
 
-    /* Content */
     .content { margin-left:280px; padding:2em; }
     h1#billing-header { font-size:1.5em; margin-bottom:1em; }
 
-    /* Plan & Actions */
     #plan { padding:20px 0; border-bottom:1px solid #eee; }
     #plan h2 { font-size:1.25em; margin-bottom:.5em; }
     #plan span.status { margin-left:.5em; }
@@ -51,11 +48,9 @@
     .btn-orange { background:#ff7800; color:#000; }
     .btn-gray   { background:#212121; color:#fff; }
 
-    /* Sections */
     .section { padding:20px 0; border-bottom:1px solid #eee; }
     .section:last-of-type { border-bottom:none; }
 
-    /* Payment Methods */
     #pms { max-width:600px; }
     .pm-item {
       display:flex; align-items:center; padding:.75em;
@@ -77,7 +72,6 @@
       font-size:1.2em; color:#dc3545; margin-left:1em; cursor:pointer;
     }
 
-    /* New Card Form */
     .new-pm-wrapper {
       border:1px solid #ccc; padding:1em; border-radius:6px;
       max-width:400px; margin-top:1em;
@@ -87,7 +81,6 @@
       padding:1em 2em; font-weight:600; cursor:pointer; margin-top:.5em;
     }
 
-    /* Invoice status badges */
     .badge {
       display:inline-block; padding:2px 6px; border-radius:4px;
       font-size:.8em; margin-left:.5em; color:#fff;
@@ -95,7 +88,6 @@
     .badge.success { background:#28a745; }
     .badge.failed  { background:#dc3545; }
 
-    /* Responsive */
     @media (max-width:768px){
       .sidebar{position:relative;width:100%;height:auto;padding:1em;}
       .content{margin-left:0;padding:1em;}
@@ -144,10 +136,12 @@
   </div>
 
   <script>
-    // Clock
+    // Sidebar clock
     function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
-                   hour:'numeric', minute:'2-digit', hour12:true };
+      const opts = {
+        timeZone:'America/New_York', month:'long', day:'numeric',
+        hour:'numeric', minute:'2-digit', hour12:true
+      };
       document.getElementById('timestamp').textContent =
         'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
     }
@@ -156,7 +150,7 @@
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const customerId = new URLSearchParams(location.search).get('customerId');
 
-    // Context & Header
+    // Context & header
     fetch('/.netlify/functions/list-customers')
       .then(r=>r.json()).then(list=>{
         const c = list.find(x=>x.id===customerId);
@@ -191,21 +185,21 @@
           <p>${(latest.plan.amount/100).toFixed(2)} USD · renews on
             ${new Date(latest.current_period_end*1000).toLocaleDateString()}
           </p>`;
-        document.getElementById('pause').onclick = () => {
-          if (!confirm('Pause this retainer?')) return;
+        document.getElementById('pause').onclick = ()=>{
+          if(!confirm('Pause this retainer?'))return;
           fetch('/.netlify/functions/pause-subscription',{ method:'POST',
-            body: JSON.stringify({ subscriptionId: latest.id })})
+            body:JSON.stringify({subscriptionId:latest.id})})
             .then(()=>location.reload());
         };
-        document.getElementById('cancel').onclick = () => {
-          if (!confirm('Cancel this retainer?')) return;
+        document.getElementById('cancel').onclick = ()=>{
+          if(!confirm('Cancel this retainer?'))return;
           fetch('/.netlify/functions/cancel-subscription',{ method:'POST',
-            body: JSON.stringify({ subscriptionId: latest.id })})
+            body:JSON.stringify({subscriptionId:latest.id})})
             .then(()=>location.reload());
         };
       });
 
-    // Load payment methods
+    // Load PMs
     async function loadPMs(){
       const { paymentMethods, defaultPaymentMethod } = await fetch(
         `/.netlify/functions/list-payment-methods?customerId=${customerId}`
@@ -213,14 +207,14 @@
       const container = document.getElementById('pms');
       container.innerHTML = '';
       paymentMethods.forEach(pm=>{
-        const div = document.createElement('div'); div.className='pm-item';
-        const brand = pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
-        const desc  = document.createElement('span'); desc.className='desc';
-        desc.textContent = `${brand} •••• ${pm.card.last4}`;
-        const exp = document.createElement('span'); exp.className='expiry';
-        exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
+        const div=document.createElement('div'); div.className='pm-item';
+        const brand=pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
+        const desc=document.createElement('span'); desc.className='desc';
+        desc.textContent=`${brand} •••• ${pm.card.last4}`;
+        const exp=document.createElement('span'); exp.className='expiry';
+        exp.textContent=`Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
         desc.append(exp);
-        if (pm.id===defaultPaymentMethod) {
+        if(pm.id===defaultPaymentMethod){
           const badge=document.createElement('span'); badge.className='default-badge';
           badge.textContent='Default'; desc.append(badge);
         } else {
@@ -228,9 +222,9 @@
           setBtn.textContent='Set as default';
           setBtn.onclick=()=>{
             if(!confirm('Make this card the default payment method?'))return;
-            fetch('/.netlify/functions/set-default-method',{method:'POST',
+            fetch('/.netlify/functions/set-default-method',{ method:'POST',
               headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({customerId,paymentMethodId:pm.id})})
+              body:JSON.stringify({customerId,paymentMethodId:pm.id}) })
             .then(()=>loadPMs());
           };
           desc.append(setBtn);
@@ -239,30 +233,26 @@
         rm.textContent='✖';
         rm.onclick=()=>{
           if(!confirm('Remove this payment method?'))return;
-          fetch('/.netlify/functions/detach-method',{method:'POST',
+          fetch('/.netlify/functions/detach-method',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({paymentMethodId:pm.id})})
+            body:JSON.stringify({paymentMethodId:pm.id}) })
           .then(()=>loadPMs());
         };
-        div.append(desc, rm);
-        container.append(div);
+        div.append(desc, rm); container.append(div);
       });
     }
     loadPMs();
 
-    // Add new card → Charge Now or Save & Charge Later
-    document.getElementById('add-pm').onclick = async ()=>{
+    // Add new PM → Charge Now / Save & Charge Later
+    document.getElementById('add-pm').onclick=async()=>{
       const { clientSecret } = await fetch(
-        '/.netlify/functions/create-setup-intent',{
-          method:'POST',
+        '/.netlify/functions/create-setup-intent',{ method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ customerId })
-        }
+          body:JSON.stringify({customerId}) }
       ).then(r=>r.json());
 
-      // render form + two buttons
-      const area = document.getElementById('new-pm-area');
-      area.innerHTML = `
+      // render card + buttons
+      document.getElementById('new-pm-area').innerHTML=`
         <div class="new-pm-wrapper">
           <div id="new-card"></div>
           <div style="margin-top:1em;">
@@ -271,77 +261,70 @@
               Save & Charge Later
             </button>
           </div>
-        </div>
-      `;
+        </div>`;
 
-      // mount Stripe Card
-      const elements = stripe.elements();
-      const card2 = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } }});
+      // mount Stripe card
+      const elements=stripe.elements();
+      const card2=elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif'} }});
       card2.mount('#new-card');
 
-      // helper to confirm setup
       async function confirmSetup(){
         const { setupIntent, error } = await stripe.confirmCardSetup(
-          clientSecret, { payment_method:{ card: card2 } }
+          clientSecret,{ payment_method:{ card:card2} }
         );
-        if (error) throw error;
+        if(error) throw error;
         return setupIntent.payment_method;
       }
 
-      // Charge Now
-      document.getElementById('charge-now').onclick = async ()=>{
+      document.getElementById('charge-now').onclick=async()=>{
         try {
-          const pmId = await confirmSetup();
-          const res = await fetch('/.netlify/functions/charge-now',{ method:'POST',
+          const pmId=await confirmSetup();
+          const res=await fetch('/.netlify/functions/charge-now',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
+            body:JSON.stringify({
               customerId,
-              paymentMethodId: pmId,
-              productId: 'prod_KRxEr46XEWhQLm'
-            })
-          });
-          const { invoice, error } = await res.json();
-          if (error) throw new Error(error);
-          alert('✅ Charged: ' + invoice.id);
+              paymentMethodId:pmId,
+              productId:'prod_KRxEr46XEWhQLm'
+            })});
+          const {invoice,error}=await res.json();
+          if(error) throw new Error(error);
+          alert('✅ Charged: '+invoice.id);
           loadPMs();
         } catch(err){
-          alert('Error: ' + err.message);
+          alert('Error: '+err.message);
         }
       };
 
-      // Save & Charge Later
-      document.getElementById('save-later').onclick = async ()=>{
+      document.getElementById('save-later').onclick=async()=>{
         try {
-          const pmId = await confirmSetup();
+          const pmId=await confirmSetup();
           await fetch('/.netlify/functions/attach-method',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ customerId, paymentMethodId: pmId })
-          });
-          alert('✅ Payment method saved!');
+            body:JSON.stringify({customerId,paymentMethodId:pmId}) });
+          alert('✅ Card saved!');
           loadPMs();
         } catch(err){
-          alert('Error: ' + err.message);
+          alert('Error: '+err.message);
         }
       };
     };
 
-    // Billing History
+    // Billing history
     fetch(`/.netlify/functions/list-invoices?customerId=${customerId}`)
       .then(r=>r.json())
       .then(all=>{
-        const hist = document.getElementById('history');
-        const shown = all.slice(0,3);
-        if (!shown.length) hist.innerHTML = '<p>No invoices found.</p>';
+        const hist=document.getElementById('history');
+        const shown=all.slice(0,3);
+        if(!shown.length) hist.innerHTML='<p>No invoices found.</p>';
         shown.forEach(i=>{
-          const date    = new Date(i.created*1000).toLocaleDateString();
-          const success = i.status==='paid';
-          const div     = document.createElement('div');
-          div.className='invoice';
+          const date=new Date(i.created*1000).toLocaleDateString();
+          const ok=i.status==='paid';
+          const div=document.createElement('div'); div.className='invoice';
           div.innerHTML=`
             <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
             • $${(i.amount_paid/100).toFixed(2)}
-            <span class="badge ${success?'success':'failed'}">
-              ${success?'Success':'Failed'}
+            <span class="badge ${ok?'success':'failed'}">
+              ${ok?'Success':'Failed'}
             </span>`;
           hist.append(div);
         });
@@ -352,15 +335,14 @@
           more.onclick=e=>{
             e.preventDefault(); hist.innerHTML='';
             all.forEach(i=>{
-              const date    = new Date(i.created*1000).toLocaleDateString();
-              const success = i.status==='paid';
-              const div     = document.createElement('div');
-              div.className='invoice';
+              const date=new Date(i.created*1000).toLocaleDateString();
+              const ok=i.status==='paid';
+              const div=document.createElement('div'); div.className='invoice';
               div.innerHTML=`
                 <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
                 • $${(i.amount_paid/100).toFixed(2)}
-                <span class="badge ${success?'success':'failed'}">
-                  ${success?'Success':'Failed'}
+                <span class="badge ${ok?'success':'failed'}">
+                  ${ok?'Success':'Failed'}
                 </span>`;
               hist.append(div);
             });
