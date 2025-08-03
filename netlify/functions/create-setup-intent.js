@@ -1,7 +1,19 @@
-// For updating existing customer
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-exports.handler = async ({ body }) => {
-  const { customerId } = JSON.parse(body);
-  const intent = await stripe.setupIntents.create({ customer: customerId, usage: 'off_session', payment_method_types: ['card'] });
-  return { statusCode: 200, body: JSON.stringify({ clientSecret: intent.client_secret }) };
+// netlify/functions/create-setup-intent.js
+const Stripe = require('stripe');
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
+exports.handler = async (event) => {
+  try {
+    const { customerId } = JSON.parse(event.body);
+    // create a brand-new SetupIntent
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId
+    });
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ clientSecret: setupIntent.client_secret })
+    };
+  } catch (err) {
+    return { statusCode: 500, body: err.message };
+  }
 };
