@@ -9,30 +9,32 @@ exports.handler = async (event) => {
     const { customerId, paymentMethodId, productId } = JSON.parse(event.body);
 
     // 1) Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: customerId,
-    });
+    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
 
     // 2) Make it the default payment method
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    // 3) Look up an active price for the given product
+    // 3) Look up any active price for the given product
     const prices = await stripe.prices.list({
       product: productId,
       active: true,
-      limit: 1,
+      limit: 1
     });
     if (!prices.data.length) {
       throw new Error(`No active price found for product ${productId}`);
     }
-    const priceId = prices.data[0].id;
+    const p = prices.data[0];
 
-    // 4) Create an invoice item for that price
+    // 4) Create a one-time invoice item using price_data
     await stripe.invoiceItems.create({
       customer: customerId,
-      price: priceId,
+      price_data: {
+        currency: p.currency,
+        unit_amount: p.unit_amount,
+        product: productId
+      }
     });
 
     // 5) Create & finalize the invoice (auto_advance: true will attempt payment)
