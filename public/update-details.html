@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Update Client Details</title>
 
-  <!-- Inter font -->
+  <!-- Inter Webfont -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
 
   <!-- Stripe.js -->
   <script>
@@ -17,127 +17,43 @@
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    /* … your existing CSS … */
-  </style>
-</head>
-<body>
-  <div class="sidebar">
-    <img src="assets/logo.svg" alt="RoofEngine" />
-    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
-    <p id="timestamp"></p>
-    <p id="context"></p>
-    <a href="index.html" class="home">← Home</a>
-  </div>
+    * { box-sizing:border-box; }
+    body,html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
+    .sidebar {
+      position:fixed; top:0; left:0; width:280px; height:100%;
+      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
+    }
+    .sidebar img { width:150px; margin-bottom:1em; }
+    .sidebar h2 { font-size:1.25em; margin:0 0 1em; line-height:1.3; }
+    .sidebar p { margin:0 0 1em; }
+    .sidebar a.home {
+      color:#fff; text-decoration:none; font-weight:500;
+    }
 
-  <div class="content">
-    <h1 id="billing-header">Billing</h1>
-    <div id="plan"></div>
-    <div id="actions">
-      <button id="pause" class="btn btn-orange">⚠️ Pause retainer</button>
-      <button id="cancel" class="btn btn-gray">🚫 Cancel retainer</button>
-    </div>
+    .content { margin-left:280px; padding:2em; }
+    h1 { margin-top:0; font-size:1.5em; }
 
-    <div class="section">
-      <h2>Payment methods</h2>
-      <div id="pms"></div>
-      <button id="add-pm" class="btn btn-paleyellow">➕ Add payment method</button>
-      <div id="new-pm-area"></div>
-      <p id="pm-message" style="color:#28a745; margin-top:.5em;"></p>
-    </div>
+    .section { padding:20px 0; border-bottom:1px solid #eee; }
+    .section:last-child { border-bottom:none; }
 
-    <div class="section">
-      <h2>Billing history</h2>
-      <div id="history"></div>
-    </div>
-  </div>
+    /* Plan */
+    #plan h2 {
+      font-size:1.25em; margin:0 0 .5em;
+    }
+    #plan p { margin:0; }
 
-  <script>
-    // Sidebar clock (unchanged)…
-    function updateTime(){ /* … */ }
-    updateTime(); setInterval(updateTime,60000);
+    /* Actions */
+    #actions {
+      display:flex; gap:70px; margin:20px 0;
+    }
+    #actions .btn {
+      padding:1em 2em; border:none; border-radius:6px;
+      font-weight:600; font-size:1em; cursor:pointer; min-width:140px;
+    }
+    .btn-orange  { background:#ff7800; color:#000; }
+    .btn-gray    { background:#212121; color:#fff; }
 
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-    const customerId = new URLSearchParams(location.search).get('customerId');
-
-    // … load context, subscription, existing PMs, history as before …
-
-    // —— NEW: Add payment method flow with logging —— 
-    document.getElementById('add-pm').onclick = async () => {
-      // 1) Fetch a fresh SetupIntent
-      const resp = await fetch('/.netlify/functions/create-setup-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId })
-      });
-      const { clientSecret } = await resp.json();
-
-      // Log it so you can verify it in Console!
-      console.log('🔑 SetupIntent clientSecret:', clientSecret);
-
-      // 2) Render the card element + two buttons
-      document.getElementById('new-pm-area').innerHTML = `
-        <div class="new-pm-wrapper">
-          <div id="new-card"></div>
-          <div style="margin-top:1em;display:flex;gap:1em;align-items:center;">
-            <button id="charge-now" class="btn-save">Charge Now</button>
-            <button id="save-later" class="btn btn-gray">Save & Charge Later</button>
-          </div>
-        </div>
-      `;
-
-      // 3) Mount Stripe Card Element
-      const elements = stripe.elements();
-      const card = elements.create('card', { style:{ base:{ fontFamily:'Inter, sans-serif' } } });
-      card.mount('#new-card');
-
-      // Helper: confirmCardSetup with the clientSecret
-      async function confirmSetupIntent() {
-        const { setupIntent, error } = await stripe.confirmCardSetup(
-          clientSecret,
-          { payment_method: { card } }
-        );
-        if (error) throw error;
-        return setupIntent.payment_method;
-      }
-
-      // 4) “Charge Now” button
-      document.getElementById('charge-now').onclick = async () => {
-        try {
-          const pmId = await confirmSetupIntent();
-          const res = await fetch('/.netlify/functions/charge-now', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerId,
-              paymentMethodId: pmId,
-              productId: 'prod_KRxEr46XEWhQLm'
-            })
-          });
-          const { invoice, error } = await res.json();
-          if (error) throw new Error(error);
-          alert('✅ Charged: ' + invoice.id);
-          loadPMs();
-        } catch (err) {
-          alert('❌ ' + err.message);
-        }
-      };
-
-      // 5) “Save & Charge Later” button
-      document.getElementById('save-later').onclick = async () => {
-        try {
-          const pmId = await confirmSetupIntent();
-          await fetch('/.netlify/functions/attach-method', {
-            method:'POST',
-            headers:{ 'Content-Type':'application/json' },
-            body: JSON.stringify({ customerId, paymentMethodId: pmId })
-          });
-          alert('✅ Payment method saved for later.');
-          loadPMs();
-        } catch (err) {
-          alert('❌ ' + err.message);
-        }
-      };
-    };
-  </script>
-</body>
-</html>
+    /* Payments */
+    #pms { max-width:600px; }
+    .pm-item {
+      display:f
