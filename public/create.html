@@ -10,59 +10,41 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Stripe.js -->
-  <script>
-    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
-  </script>
+  <!-- Stripe.js (library only; key injected below) -->
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
+    /* ... your existing CSS from the two-column version ... */
     * { box-sizing: border-box; }
     body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     .sidebar {
-      position:fixed; top:0; left:0; width:280px; height:100%;
+      position: fixed; top:0; left:0; width:280px; height:100%;
       background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
     }
     .sidebar img { width:150px; margin-bottom:1em; }
-    .sidebar h2 { font-size:1.25em; margin-bottom:1em; }
+    .sidebar h2 { font-size:1.25em; margin:0 0 1em; line-height:1.3; }
     .sidebar p, .sidebar a { margin:0 0 1em; color:#fff; text-decoration:none; }
     .content { margin-left:280px; padding:2em; }
     h1 { margin-bottom:1em; }
 
-    /* Two-column form grid */
     #cust-form {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1em;
+      grid-template-columns: repeat(2,1fr);
+      gap:1em;
     }
-    /* full-width rows */
-    #cust-form .full { grid-column: 1 / -1; }
+    #cust-form .full { grid-column:1/-1; }
 
     label { font-weight:600; display:block; margin-bottom:.5em; }
     input, .StripeElement { width:100%; padding:.75em; font-size:1em; }
 
-    /* Narrower date picker */
     #charge-date {
-      display: none;
-      width: 250px;
-      padding: .5em;
+      display:none; width:250px; padding:.5em;
     }
-
-    /* Card element border */
     #card-element {
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      padding: 12px;
+      border:1px solid #ccc; border-radius:4px; padding:12px;
     }
-
-    /* Styled radio options */
-    .radio-group {
-      display:flex; gap:1em;
-    }
-    .radio-group .option {
-      flex:1;
-      text-align:center;
-    }
+    .radio-group { display:flex; gap:1em; }
+    .radio-group .option { flex:1; text-align:center; }
     .radio-group .option input { display:none; }
     .radio-group .option span {
       display:inline-block; padding:.5em 1em;
@@ -80,16 +62,11 @@
       border:none; border-radius:6px; cursor:pointer;
     }
     #submit-btn {
-      background:#007bff; color:#fff;
-      width:100%; margin-top:1em;
+      background:#007bff; color:#fff; width:100%; margin-top:1em;
     }
-
-    /* Loading spinner */
     #loading {
       display:none; text-align:center; margin-top:2em;
     }
-
-    /* Confirmation modal */
     #confirm-modal {
       position:fixed; top:0; left:0; width:100%; height:100%;
       background:rgba(0,0,0,0.6); display:none;
@@ -118,7 +95,7 @@
     <h1>Create New Customer</h1>
 
     <form id="cust-form">
-      <!-- Col 1 -->
+      <!-- Column 1 -->
       <div>
         <label for="company">Company Name</label>
         <input id="company" name="company" required/>
@@ -131,7 +108,8 @@
         <label for="phone">Phone</label>
         <input id="phone" name="phone" required/>
       </div>
-      <!-- Col 2 -->
+
+      <!-- Column 2 -->
       <div>
         <label for="line1">Street Address</label>
         <input id="line1" name="line1" placeholder="123 Main St" required/>
@@ -144,13 +122,14 @@
         <label for="state">State</label>
         <input id="state" name="state" required/>
       </div>
-      <!-- Full-width row: postal -->
+
+      <!-- Full-width postal code -->
       <div class="full">
         <label for="postal_code">Zip Code</label>
         <input id="postal_code" name="postal_code" required/>
       </div>
 
-      <!-- Full-width: radio choices -->
+      <!-- Full-width charge option + date -->
       <div class="full">
         <div class="radio-group">
           <label class="option now">
@@ -162,16 +141,16 @@
             <span>Charge Later</span>
           </label>
         </div>
-        <input id="charge-date" type="date" />
+        <input id="charge-date" type="date"/>
       </div>
 
-      <!-- Full-width: Card Element -->
+      <!-- Full-width card element -->
       <div class="full">
         <label>Card Details</label>
         <div id="card-element" class="StripeElement"></div>
       </div>
 
-      <!-- Full-width: Submit -->
+      <!-- Full-width submit -->
       <div class="full">
         <button id="submit-btn" type="submit">Submit</button>
       </div>
@@ -198,130 +177,158 @@
   </div>
 
   <script>
-    // Sidebar clock
+    // Clock
     function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
-                   hour:'numeric', minute:'2-digit', hour12:true };
+      const opts={ timeZone:'America/New_York',
+                   month:'long', day:'numeric',
+                   hour:'numeric', minute:'2-digit',
+                   hour12:true };
       document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+        'Today is '+
+        new Intl.DateTimeFormat('en-US',opts).format(new Date())+
+        ' EST';
     }
     updateTime(); setInterval(updateTime,60000);
 
-    // Stripe setup
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-    const elements = stripe.elements();
-    const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
-    cardEl.mount('#card-element');
+    // Fetch your publishable key from Netlify Function
+    async function initApp(){
+      const res = await fetch('/.netlify/functions/get-publishable-key');
+      const { publishableKey } = await res.json();
+      const stripe = Stripe(publishableKey);
+      const elements = stripe.elements();
+      const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+      cardEl.mount('#card-element');
 
-    // Loader helper
-    const loading = document.getElementById('loading');
-    function showLoader(on) {
-      loading.style.display = on ? 'block' : 'none';
-    }
+      // loader helper
+      const loading = document.getElementById('loading');
+      function showLoader(on){ loading.style.display = on?'block':'none'; }
 
-    const form      = document.getElementById('cust-form');
-    const dateInput = document.getElementById('charge-date');
-    const modal     = document.getElementById('confirm-modal');
-    const msg       = document.getElementById('confirm-msg');
-    const cd        = document.getElementById('countdown');
-    const okBtn     = document.getElementById('modal-ok');
-    const cancelBtn = document.getElementById('modal-cancel');
+      // form + modal setup...
+      const form      = document.getElementById('cust-form');
+      const dateInput = document.getElementById('charge-date');
+      const modal     = document.getElementById('confirm-modal');
+      const msg       = document.getElementById('confirm-msg');
+      const cd        = document.getElementById('countdown');
+      const okBtn     = document.getElementById('modal-ok');
+      const cancelBtn = document.getElementById('modal-cancel');
 
-    // Toggle date picker
-    form.chargeOption.forEach(radio => {
-      radio.onchange = () => dateInput.style.display = radio.value==='later' ? 'block' : 'none';
-    });
-
-    // Confirmation modal
-    let countdownInterval, resolveFn, rejectFn;
-    function showConfirm(text){
-      msg.textContent = text;
-      let t=20; cd.textContent=t;
-      modal.style.display='flex';
-      return new Promise((res,rej)=>{
-        resolveFn=res; rejectFn=rej;
-        clearInterval(countdownInterval);
-        countdownInterval=setInterval(()=>{
-          t--; cd.textContent=t;
-          if(t<=0){ clearInterval(countdownInterval); modal.style.display='none'; rej(new Error('Timed out')); }
-        },1000);
+      // toggle date picker
+      form.chargeOption.forEach(radio=>{
+        radio.onchange = ()=> {
+          dateInput.style.display = radio.value==='later'?'block':'none';
+        };
       });
-    }
-    okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
-    cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('Cancelled')); };
 
-    // Main submit flow
-    form.onsubmit = async e => {
-      e.preventDefault();
-      showLoader(true);
-      try {
-        // 1) Create customer
-        const createRes = await fetch('/.netlify/functions/create-customer',{ method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            name:        form.company.value,
-            email:       form.email.value,
-            phone:       form.phone.value,
-            line1:       form.line1.value,
-            city:        form.city.value,
-            state:       form.state.value,
-            postal_code: form.postal_code.value
-          })
+      // confirmation modal
+      let countdownInterval, resolveFn, rejectFn;
+      function showConfirm(text){
+        msg.textContent=text;
+        let t=20; cd.textContent=t;
+        modal.style.display='flex';
+        return new Promise((res,rej)=>{
+          resolveFn=res; rejectFn=rej;
+          clearInterval(countdownInterval);
+          countdownInterval = setInterval(()=>{
+            t--; cd.textContent=t;
+            if(t<=0){
+              clearInterval(countdownInterval);
+              modal.style.display='none';
+              rej(new Error('Timed out'));
+            }
+          },1000);
         });
-        const { customerId, error:custErr } = await createRes.json();
-        if(custErr) throw new Error(custErr);
-
-        // 2) SetupIntent
-        const siRes = await fetch('/.netlify/functions/create-setup-intent',{ method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ customerId })
-        });
-        const { clientSecret, error:siErr } = await siRes.json();
-        if(siErr) throw new Error(siErr);
-
-        // 3) Confirm card
-        const { setupIntent, error:ciErr } = await stripe.confirmCardSetup(
-          clientSecret, { payment_method:{ card:cardEl } }
-        );
-        if(ciErr) throw ciErr;
-        const pmId = setupIntent.payment_method;
-
-        // 4) Retrieve PM for last4
-        const pmRes = await fetch(`/.netlify/functions/retrieve-payment-method?paymentMethodId=${pmId}`);
-        const { card, error:pmErr } = await pmRes.json();
-        if(pmErr) throw new Error(pmErr);
-        const last4 = card.last4;
-
-        // 5) Branch
-        const opt = form.chargeOption.value;
-        if(opt==='now'){
-          await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK.`);
-          const chRes = await fetch('/.netlify/functions/charge-now',{ method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm' })
-          });
-          const { invoice, error:chErr } = await chRes.json();
-          if(chErr) throw new Error(chErr);
-          alert('✅ Charged! Invoice: '+invoice.id);
-        } else {
-          if(!dateInput.value) throw new Error('Please pick a date.');
-          const dateStr = new Date(dateInput.value+'T09:00:00-04:00')
-            .toLocaleString('en-US',{ timeZone:'America/New_York', dateStyle:'long', timeStyle:'short' });
-          await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK.`);
-          const scRes = await fetch('/.netlify/functions/schedule-charge',{ method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm', date:dateInput.value })
-          });
-          const { error:scErr } = await scRes.json();
-          if(scErr) throw new Error(scErr);
-          alert('✅ Charge scheduled for '+dateStr);
-        }
-      } catch(err) {
-        alert('❌ '+err.message);
-      } finally {
-        showLoader(false);
       }
-    };
+      okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
+      cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('Cancelled')); };
+
+      // main submit
+      form.onsubmit = async e=>{
+        e.preventDefault();
+        showLoader(true);
+        try {
+          // 1) create customer
+          const cRes = await fetch('/.netlify/functions/create-customer',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              name:        form.company.value,
+              email:       form.email.value,
+              phone:       form.phone.value,
+              line1:       form.line1.value,
+              city:        form.city.value,
+              state:       form.state.value,
+              postal_code: form.postal_code.value
+            })
+          });
+          const { customerId, error:cErr } = await cRes.json();
+          if(cErr) throw new Error(cErr);
+
+          // 2) setup intent
+          const siRes = await fetch('/.netlify/functions/create-setup-intent',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ customerId })
+          });
+          const { clientSecret, error:siErr } = await siRes.json();
+          if(siErr) throw new Error(siErr);
+
+          // 3) confirm card
+          const { setupIntent, error:ciErr } = await stripe.confirmCardSetup(
+            clientSecret, { payment_method:{ card:cardEl } }
+          );
+          if(ciErr) throw ciErr;
+          const pmId = setupIntent.payment_method;
+
+          // 4) retrieve pm
+          const pmRes = await fetch(`/.netlify/functions/retrieve-payment-method?paymentMethodId=${pmId}`);
+          const { card, error:pmErr } = await pmRes.json();
+          if(pmErr) throw new Error(pmErr);
+          const last4 = card.last4;
+
+          // 5) branch now vs later
+          const opt = form.chargeOption.value;
+          if(opt==='now'){
+            await showConfirm(
+              `We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK.`
+            );
+            const chRes = await fetch('/.netlify/functions/charge-now',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm'
+              })
+            });
+            const { invoice, error:chErr } = await chRes.json();
+            if(chErr) throw new Error(chErr);
+            alert('✅ Charged! Invoice: '+invoice.id);
+          } else {
+            if(!dateInput.value) throw new Error('Please pick a date.');
+            const dateStr = new Date(dateInput.value+'T09:00:00-04:00')
+              .toLocaleString('en-US',{ timeZone:'America/New_York',
+                                       dateStyle:'long', timeStyle:'short' });
+            await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK.`);
+            const scRes = await fetch('/.netlify/functions/schedule-charge',{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                customerId, paymentMethodId:pmId,
+                productId:'prod_KRxEr46XEWhQLm', date:dateInput.value
+              })
+            });
+            const { error:scErr } = await scRes.json();
+            if(scErr) throw new Error(scErr);
+            alert('✅ Charge scheduled for '+dateStr);
+          }
+        } catch(err) {
+          alert('❌ '+err.message);
+        } finally {
+          showLoader(false);
+        }
+      };
+    }
+
+    // kick off after DOM ready
+    document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
