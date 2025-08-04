@@ -14,11 +14,10 @@
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    /* ... your existing CSS from the two-column version ... */
     * { box-sizing: border-box; }
     body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     .sidebar {
-      position: fixed; top:0; left:0; width:280px; height:100%;
+      position:fixed; top:0; left:0; width:280px; height:100%;
       background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
     }
     .sidebar img { width:150px; margin-bottom:1em; }
@@ -27,12 +26,24 @@
     .content { margin-left:280px; padding:2em; }
     h1 { margin-bottom:1em; }
 
+    /* Duplicate warning box */
+    #dup-alert {
+      display:none;
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 1em;
+      margin-bottom: 1em;
+      border-radius: 4px;
+    }
+
+    /* Two-column form */
     #cust-form {
       display: grid;
-      grid-template-columns: repeat(2,1fr);
-      gap:1em;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1em;
     }
-    #cust-form .full { grid-column:1/-1; }
+    #cust-form .full { grid-column: 1 / -1; }
 
     label { font-weight:600; display:block; margin-bottom:.5em; }
     input, .StripeElement { width:100%; padding:.75em; font-size:1em; }
@@ -43,8 +54,13 @@
     #card-element {
       border:1px solid #ccc; border-radius:4px; padding:12px;
     }
-    .radio-group { display:flex; gap:1em; }
-    .radio-group .option { flex:1; text-align:center; }
+
+    .radio-group {
+      display:flex; gap:1em;
+    }
+    .radio-group .option {
+      flex:1; text-align:center;
+    }
     .radio-group .option input { display:none; }
     .radio-group .option span {
       display:inline-block; padding:.5em 1em;
@@ -85,7 +101,7 @@
 <body>
 
   <div class="sidebar">
-    <img src="assets/logo.svg" alt="RoofEngine" />
+    <img src="assets/logo.svg" alt="RoofEngine Logo" />
     <h2>RoofEngine<br/>Billing Portal</h2>
     <p id="timestamp"></p>
     <a href="index.html">← Home</a>
@@ -94,8 +110,11 @@
   <div class="content">
     <h1>Create New Customer</h1>
 
+    <!-- Duplicate warning -->
+    <div id="dup-alert"></div>
+
+    <!-- Form -->
     <form id="cust-form">
-      <!-- Column 1 -->
       <div>
         <label for="company">Company Name</label>
         <input id="company" name="company" required/>
@@ -108,8 +127,6 @@
         <label for="phone">Phone</label>
         <input id="phone" name="phone" required/>
       </div>
-
-      <!-- Column 2 -->
       <div>
         <label for="line1">Street Address</label>
         <input id="line1" name="line1" placeholder="123 Main St" required/>
@@ -122,14 +139,10 @@
         <label for="state">State</label>
         <input id="state" name="state" required/>
       </div>
-
-      <!-- Full-width postal code -->
       <div class="full">
         <label for="postal_code">Zip Code</label>
         <input id="postal_code" name="postal_code" required/>
       </div>
-
-      <!-- Full-width charge option + date -->
       <div class="full">
         <div class="radio-group">
           <label class="option now">
@@ -143,14 +156,10 @@
         </div>
         <input id="charge-date" type="date"/>
       </div>
-
-      <!-- Full-width card element -->
       <div class="full">
         <label>Card Details</label>
         <div id="card-element" class="StripeElement"></div>
       </div>
-
-      <!-- Full-width submit -->
       <div class="full">
         <button id="submit-btn" type="submit">Submit</button>
       </div>
@@ -184,26 +193,26 @@
                    hour:'numeric', minute:'2-digit',
                    hour12:true };
       document.getElementById('timestamp').textContent =
-        'Today is '+
-        new Intl.DateTimeFormat('en-US',opts).format(new Date())+
+        'Today is ' +
+        new Intl.DateTimeFormat('en-US',opts).format(new Date()) +
         ' EST';
     }
     updateTime(); setInterval(updateTime,60000);
 
-    // Fetch your publishable key from Netlify Function
     async function initApp(){
-      const res = await fetch('/.netlify/functions/get-publishable-key');
-      const { publishableKey } = await res.json();
+      // 1) fetch publishable key
+      const keyRes = await fetch('/.netlify/functions/get-publishable-key');
+      const { publishableKey } = await keyRes.json();
       const stripe = Stripe(publishableKey);
       const elements = stripe.elements();
       const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
       cardEl.mount('#card-element');
 
-      // loader helper
+      // helpers
       const loading = document.getElementById('loading');
+      const dupAlert = document.getElementById('dup-alert');
       function showLoader(on){ loading.style.display = on?'block':'none'; }
 
-      // form + modal setup...
       const form      = document.getElementById('cust-form');
       const dateInput = document.getElementById('charge-date');
       const modal     = document.getElementById('confirm-modal');
@@ -212,23 +221,21 @@
       const okBtn     = document.getElementById('modal-ok');
       const cancelBtn = document.getElementById('modal-cancel');
 
-      // toggle date picker
+      // show/hide date
       form.chargeOption.forEach(radio=>{
-        radio.onchange = ()=> {
-          dateInput.style.display = radio.value==='later'?'block':'none';
-        };
+        radio.onchange = ()=> dateInput.style.display = radio.value==='later'?'block':'none';
       });
 
       // confirmation modal
       let countdownInterval, resolveFn, rejectFn;
       function showConfirm(text){
-        msg.textContent=text;
-        let t=20; cd.textContent=t;
-        modal.style.display='flex';
-        return new Promise((res,rej)=>{
+        msg.textContent = text;
+        let t=20; cd.textContent = t;
+        modal.style.display = 'flex';
+        return new Promise((res, rej)=>{
           resolveFn=res; rejectFn=rej;
           clearInterval(countdownInterval);
-          countdownInterval = setInterval(()=>{
+          countdownInterval=setInterval(()=>{
             t--; cd.textContent=t;
             if(t<=0){
               clearInterval(countdownInterval);
@@ -244,15 +251,33 @@
       // main submit
       form.onsubmit = async e=>{
         e.preventDefault();
+        dupAlert.style.display = 'none';
+
+        // 2) check duplicate by email
+        const email = form.email.value.trim();
+        const dupRes = await fetch(`/.netlify/functions/check-duplicate?email=${encodeURIComponent(email)}`);
+        const { exists, customerId: dupId, name: dupName } = await dupRes.json();
+        if (exists) {
+          dupAlert.innerHTML = `
+            A customer already exists for "${dupName}" (${email}).<br/>
+            <button id="go-update">Go update their billing details</button>
+          `;
+          dupAlert.style.display = 'block';
+          document.getElementById('go-update').onclick = () => {
+            location.href = `update-details.html?customerId=${dupId}`;
+          };
+          return;
+        }
+
+        // 3) then proceed with create → setup → confirm → charge
         showLoader(true);
         try {
-          // 1) create customer
-          const cRes = await fetch('/.netlify/functions/create-customer',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
+          // Create customer
+          const createRes = await fetch('/.netlify/functions/create-customer',{
+            method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({
               name:        form.company.value,
-              email:       form.email.value,
+              email,
               phone:       form.phone.value,
               line1:       form.line1.value,
               city:        form.city.value,
@@ -260,65 +285,57 @@
               postal_code: form.postal_code.value
             })
           });
-          const { customerId, error:cErr } = await cRes.json();
-          if(cErr) throw new Error(cErr);
+          const { customerId, error:cErr } = await createRes.json();
+          if (cErr) throw new Error(cErr);
 
-          // 2) setup intent
+          // SetupIntent
           const siRes = await fetch('/.netlify/functions/create-setup-intent',{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
+            method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ customerId })
           });
           const { clientSecret, error:siErr } = await siRes.json();
-          if(siErr) throw new Error(siErr);
+          if (siErr) throw new Error(siErr);
 
-          // 3) confirm card
+          // Confirm card
           const { setupIntent, error:ciErr } = await stripe.confirmCardSetup(
-            clientSecret, { payment_method:{ card:cardEl } }
+            clientSecret, { payment_method:{ card: cardEl } }
           );
-          if(ciErr) throw ciErr;
+          if (ciErr) throw ciErr;
           const pmId = setupIntent.payment_method;
 
-          // 4) retrieve pm
+          // Retrieve PM
           const pmRes = await fetch(`/.netlify/functions/retrieve-payment-method?paymentMethodId=${pmId}`);
           const { card, error:pmErr } = await pmRes.json();
-          if(pmErr) throw new Error(pmErr);
+          if (pmErr) throw new Error(pmErr);
           const last4 = card.last4;
 
-          // 5) branch now vs later
+          // Branch
           const opt = form.chargeOption.value;
-          if(opt==='now'){
-            await showConfirm(
-              `We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK.`
-            );
+          if (opt==='now') {
+            await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK.`);
             const chRes = await fetch('/.netlify/functions/charge-now',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm'
-              })
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm' })
             });
             const { invoice, error:chErr } = await chRes.json();
-            if(chErr) throw new Error(chErr);
+            if (chErr) throw new Error(chErr);
             alert('✅ Charged! Invoice: '+invoice.id);
           } else {
-            if(!dateInput.value) throw new Error('Please pick a date.');
+            if (!dateInput.value) throw new Error('Please pick a date.');
             const dateStr = new Date(dateInput.value+'T09:00:00-04:00')
-              .toLocaleString('en-US',{ timeZone:'America/New_York',
-                                       dateStyle:'long', timeStyle:'short' });
+              .toLocaleString('en-US',{ timeZone:'America/New_York', dateStyle:'long', timeStyle:'short' });
             await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK.`);
             const scRes = await fetch('/.netlify/functions/schedule-charge',{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                customerId, paymentMethodId:pmId,
-                productId:'prod_KRxEr46XEWhQLm', date:dateInput.value
-              })
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm', date:dateInput.value })
             });
             const { error:scErr } = await scRes.json();
-            if(scErr) throw new Error(scErr);
+            if (scErr) throw new Error(scErr);
             alert('✅ Charge scheduled for '+dateStr);
           }
+
+          // 4) Clear form on success
+          form.reset();
         } catch(err) {
           alert('❌ '+err.message);
         } finally {
@@ -327,7 +344,6 @@
       };
     }
 
-    // kick off after DOM ready
     document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
