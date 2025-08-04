@@ -29,15 +29,22 @@
     .content { margin-left:280px; padding:2em; }
     h1 { margin-bottom:1em; }
 
-    form > div { margin-bottom:1em; }
+    /* Two-column form grid */
+    #cust-form {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1em;
+    }
+    /* full-width rows */
+    #cust-form .full { grid-column: 1 / -1; }
+
     label { font-weight:600; display:block; margin-bottom:.5em; }
     input, .StripeElement { width:100%; padding:.75em; font-size:1em; }
 
-    /* Date picker narrower */
+    /* Narrower date picker */
     #charge-date {
       display: none;
       width: 250px;
-      margin-top: .5em;
       padding: .5em;
     }
 
@@ -46,49 +53,40 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       padding: 12px;
-      margin-top: .25em;
     }
 
-    /* Styled radio buttons */
-    .radio-group { display:flex; gap:1em; margin-bottom:1em; }
-    .radio-group .option input { display: none; }
+    /* Styled radio options */
+    .radio-group {
+      display:flex; gap:1em;
+    }
+    .radio-group .option {
+      flex:1;
+      text-align:center;
+    }
+    .radio-group .option input { display:none; }
     .radio-group .option span {
-      display: inline-block;
-      padding: .5em 1em;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      cursor: pointer;
+      display:inline-block; padding:.5em 1em;
+      border:1px solid #ccc; border-radius:4px; cursor:pointer;
     }
     .radio-group .option.now input:checked + span {
-      background: #00D084;
-      color: #fff;
-      border-color: #00D084;
+      background:#00D084; color:#fff; border-color:#00D084;
     }
     .radio-group .option.later input:checked + span {
-      background: #ff7800;
-      color: #fff;
-      border-color: #ff7800;
+      background:#ff7800; color:#fff; border-color:#ff7800;
     }
 
     button, .btn {
-      padding: .75em 1.5em;
-      font-weight:600;
-      border:none;
-      border-radius:6px;
-      cursor:pointer;
+      padding:.75em 1.5em; font-weight:600;
+      border:none; border-radius:6px; cursor:pointer;
     }
     #submit-btn {
-      background:#007bff;
-      color:#fff;
-      width:100%;
-      margin-top:1em;
+      background:#007bff; color:#fff;
+      width:100%; margin-top:1em;
     }
 
-    /* Loading spinner (hidden by default) */
+    /* Loading spinner */
     #loading {
-      display: none;
-      text-align: center;
-      margin-top: 1em;
+      display:none; text-align:center; margin-top:2em;
     }
 
     /* Confirmation modal */
@@ -118,7 +116,9 @@
 
   <div class="content">
     <h1>Create New Customer</h1>
+
     <form id="cust-form">
+      <!-- Col 1 -->
       <div>
         <label for="company">Company Name</label>
         <input id="company" name="company" required/>
@@ -131,6 +131,7 @@
         <label for="phone">Phone</label>
         <input id="phone" name="phone" required/>
       </div>
+      <!-- Col 2 -->
       <div>
         <label for="line1">Street Address</label>
         <input id="line1" name="line1" placeholder="123 Main St" required/>
@@ -143,29 +144,37 @@
         <label for="state">State</label>
         <input id="state" name="state" required/>
       </div>
-      <div>
+      <!-- Full-width row: postal -->
+      <div class="full">
         <label for="postal_code">Zip Code</label>
         <input id="postal_code" name="postal_code" required/>
       </div>
 
-      <div class="radio-group">
-        <label class="option now">
-          <input type="radio" name="chargeOption" value="now" required />
-          <span>Charge Now</span>
-        </label>
-        <label class="option later">
-          <input type="radio" name="chargeOption" value="later" />
-          <span>Charge Later</span>
-        </label>
+      <!-- Full-width: radio choices -->
+      <div class="full">
+        <div class="radio-group">
+          <label class="option now">
+            <input type="radio" name="chargeOption" value="now" required/>
+            <span>Charge Now</span>
+          </label>
+          <label class="option later">
+            <input type="radio" name="chargeOption" value="later"/>
+            <span>Charge Later</span>
+          </label>
+        </div>
+        <input id="charge-date" type="date" />
       </div>
-      <input id="charge-date" type="date"/>
 
-      <div>
+      <!-- Full-width: Card Element -->
+      <div class="full">
         <label>Card Details</label>
         <div id="card-element" class="StripeElement"></div>
       </div>
 
-      <button id="submit-btn" type="submit">Submit</button>
+      <!-- Full-width: Submit -->
+      <div class="full">
+        <button id="submit-btn" type="submit">Submit</button>
+      </div>
     </form>
 
     <!-- Loading spinner -->
@@ -204,7 +213,7 @@
     const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
     cardEl.mount('#card-element');
 
-    // Helper to toggle loader
+    // Loader helper
     const loading = document.getElementById('loading');
     function showLoader(on) {
       loading.style.display = on ? 'block' : 'none';
@@ -218,36 +227,30 @@
     const okBtn     = document.getElementById('modal-ok');
     const cancelBtn = document.getElementById('modal-cancel');
 
-    // Show/hide date picker
+    // Toggle date picker
     form.chargeOption.forEach(radio => {
-      radio.onchange = () => {
-        dateInput.style.display = radio.value==='later' ? 'block' : 'none';
-      };
+      radio.onchange = () => dateInput.style.display = radio.value==='later' ? 'block' : 'none';
     });
 
-    // Confirmation modal logic
+    // Confirmation modal
     let countdownInterval, resolveFn, rejectFn;
     function showConfirm(text){
       msg.textContent = text;
-      let t = 20; cd.textContent = t;
-      modal.style.display = 'flex';
-      return new Promise((res, rej) => {
-        resolveFn = res; rejectFn = rej;
+      let t=20; cd.textContent=t;
+      modal.style.display='flex';
+      return new Promise((res,rej)=>{
+        resolveFn=res; rejectFn=rej;
         clearInterval(countdownInterval);
-        countdownInterval = setInterval(()=>{
-          t--; cd.textContent = t;
-          if (t <= 0) {
-            clearInterval(countdownInterval);
-            modal.style.display = 'none';
-            rej(new Error('Confirmation timed out'));
-          }
+        countdownInterval=setInterval(()=>{
+          t--; cd.textContent=t;
+          if(t<=0){ clearInterval(countdownInterval); modal.style.display='none'; rej(new Error('Timed out')); }
         },1000);
       });
     }
     okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
-    cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('User cancelled')); };
+    cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('Cancelled')); };
 
-    // Main form submit flow
+    // Main submit flow
     form.onsubmit = async e => {
       e.preventDefault();
       showLoader(true);
@@ -266,65 +269,55 @@
           })
         });
         const { customerId, error:custErr } = await createRes.json();
-        if (custErr) throw new Error(custErr);
+        if(custErr) throw new Error(custErr);
 
-        // 2) Create SetupIntent
+        // 2) SetupIntent
         const siRes = await fetch('/.netlify/functions/create-setup-intent',{ method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ customerId })
         });
         const { clientSecret, error:siErr } = await siRes.json();
-        if (siErr) throw new Error(siErr);
+        if(siErr) throw new Error(siErr);
 
         // 3) Confirm card
         const { setupIntent, error:ciErr } = await stripe.confirmCardSetup(
           clientSecret, { payment_method:{ card:cardEl } }
         );
-        if (ciErr) throw ciErr;
+        if(ciErr) throw ciErr;
         const pmId = setupIntent.payment_method;
 
-        // 4) Retrieve PaymentMethod to get last4
+        // 4) Retrieve PM for last4
         const pmRes = await fetch(`/.netlify/functions/retrieve-payment-method?paymentMethodId=${pmId}`);
         const { card, error:pmErr } = await pmRes.json();
-        if (pmErr) throw new Error(pmErr);
+        if(pmErr) throw new Error(pmErr);
         const last4 = card.last4;
 
-        // 5) Branch on choice
+        // 5) Branch
         const opt = form.chargeOption.value;
-        if (opt === 'now') {
-          await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK to confirm.`);
+        if(opt==='now'){
+          await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK.`);
           const chRes = await fetch('/.netlify/functions/charge-now',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              customerId,
-              paymentMethodId: pmId,
-              productId: 'prod_KRxEr46XEWhQLm'
-            })
+            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm' })
           });
           const { invoice, error:chErr } = await chRes.json();
-          if (chErr) throw new Error(chErr);
-          alert('✅ Charged! Invoice: ' + invoice.id);
+          if(chErr) throw new Error(chErr);
+          alert('✅ Charged! Invoice: '+invoice.id);
         } else {
-          if (!dateInput.value) throw new Error('Please pick a date.');
-          const dateStr = new Date(dateInput.value + 'T09:00:00-04:00')
+          if(!dateInput.value) throw new Error('Please pick a date.');
+          const dateStr = new Date(dateInput.value+'T09:00:00-04:00')
             .toLocaleString('en-US',{ timeZone:'America/New_York', dateStyle:'long', timeStyle:'short' });
-          await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK to confirm.`);
+          await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK.`);
           const scRes = await fetch('/.netlify/functions/schedule-charge',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              customerId,
-              paymentMethodId: pmId,
-              productId: 'prod_KRxEr46XEWhQLm',
-              date: dateInput.value
-            })
+            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm', date:dateInput.value })
           });
           const { error:scErr } = await scRes.json();
-          if (scErr) throw new Error(scErr);
-          alert('✅ Charge scheduled for ' + dateStr);
+          if(scErr) throw new Error(scErr);
+          alert('✅ Charge scheduled for '+dateStr);
         }
-
-      } catch (err) {
-        alert('❌ ' + err.message);
+      } catch(err) {
+        alert('❌ '+err.message);
       } finally {
         showLoader(false);
       }
