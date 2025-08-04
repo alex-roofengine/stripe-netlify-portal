@@ -3,238 +3,213 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Create New Client</title>
+  <title>Create New Customer</title>
 
-  <!-- Inter font -->
+  <!-- Inter Webfont -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <!-- Stripe.js -->
   <script>
-    window.STRIPE_PUBLISHABLE_KEY = 'pk_live_A4746YgjDRXtfsG5OqePKjIH';
+    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_51RaOwTH2B4qCgYPku1eH6qxmhVQTHprYixDOIs5ZQeH0aUxPnDbdjtdgG1mPr5l9aiqHZYoDaCl8ftViQaYucekw00rA3kMvP3';
   </script>
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    /* Reset & base */
-    * { box-sizing: border-box; }
-    body, html { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; }
-
-    /* Sidebar */
-    .sidebar {
-      position: fixed; top: 0; left: 0; width: 280px; height: 100%;
-      background: #000; color: #fff; padding: 2em; display: flex; flex-direction: column;
-    }
-    .sidebar img { width: 150px; margin-bottom: 1em; }
-    .sidebar h2 {
-      margin: 0 0 1em;
-      font-size: 1.25em;
-      line-height: 1.3;
-    }
-    .sidebar p#timestamp {
-      margin: 0 0 auto;
-    }
-    .sidebar a.home {
-      color: #fff; text-decoration: none; font-weight: 500;
-    }
-
-    /* Content */
-    .content { margin-left: 280px; padding: 2em; }
-    h1 { margin: 0 0 0.5em; font-size: 1.5em; }
-    h2 { margin: 0 0 1em; font-size: 1.25em; }
-
-    /* Form grid */
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1em;
-      max-width: 800px;
-    }
-    .form-grid label { display: block; margin-bottom: .25em; font-weight: 500; }
-    .form-grid input {
-      width: 100%; padding: .5em; font-size: 1em;
-      border: 1px solid #ccc; border-radius: 4px;
-    }
-
-    /* Stripe card element */
-    #card-element {
-      border: 1px solid #ccc; padding: 1em;
-      border-radius: 6px; margin-top: .5em;
-    }
-
-    /* Submit button */
-    .btn-green {
-      background: #28a745; color: #fff;
-      border: none; border-radius: 6px;
-      padding: 1em 2em; font-weight: 600;
-      cursor: pointer; margin-top: 1em;
-    }
-
-    /* Error message */
-    .error {
-      color: #dc3545; margin-top: .5em;
-    }
-
-    @media (max-width: 768px) {
-      .sidebar { position: relative; width: 100%; height: auto; padding: 1em; }
-      .content { margin-left: 0; padding: 1em; }
-      .form-grid { display: block; }
-      .form-grid input, #card-element, .btn-green { width: 100%; }
-    }
+    body, html { margin:0; padding:0; font-family:'Inter',sans-serif; }
+    .container { max-width:600px; margin:2em auto; padding:1em; }
+    h1 { text-align:center; }
+    form > div { margin-bottom:1em; }
+    label { display:block; font-weight:600; margin-bottom:.5em; }
+    input, button, .StripeElement { width:100%; padding:.75em; font-size:1em; margin-top:.25em; }
+    .btn { border:none; border-radius:4px; font-weight:600; cursor:pointer; }
+    .btn-green { background:#00D084; color:#fff; }
+    .btn-orange{ background:#ff7800; color:#fff; }
+    .actions { display:flex; gap:1em; margin-top:1em; }
+    .actions button { flex:1; }
+    #charge-date { max-width:200px; }
+    .sublabel { font-size:.9em; color:#555; margin-top:.25em; }
+    #loading-gif { margin:2em 0; display:none; }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <img src="assets/logo.svg" alt="RoofEngine Logo" />
-    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
-    <p id="timestamp"></p>
-    <a href="index.html" class="home">← Home</a>
-  </div>
+  <div class="container">
+    <h1>Create a New Customer</h1>
+    <form id="customer-form">
+      <div>
+        <label for="company">Company Name</label>
+        <input id="company" name="company" required />
+      </div>
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required />
+      </div>
+      <div>
+        <label for="phone">Phone</label>
+        <input id="phone" name="phone" required />
+      </div>
+      <div>
+        <label for="address">Address</label>
+        <input id="address" name="address" required />
+      </div>
+      <div>
+        <label>Card Details</label>
+        <div id="card-element" class="StripeElement"></div>
+      </div>
 
-  <div class="content">
-    <h1>Billing</h1>
-    <h2>Create a new customer:</h2>
-    <form id="cust-form">
-      <div class="form-grid">
-        <div>
-          <label for="name">Company Name:</label>
-          <input id="name" name="name" required />
-        </div>
-        <div>
-          <label for="email">Email:</label>
-          <input id="email" name="email" type="email" required />
-        </div>
-        <div>
-          <label for="phone">Phone:</label>
-          <input id="phone" name="phone" type="tel" required />
-        </div>
-        <div>
-          <label for="addr1">Address Line 1:</label>
-          <input id="addr1" name="addr1" required />
-        </div>
-        <div>
-          <label for="city">City:</label>
-          <input id="city" name="city" required />
-        </div>
-        <div>
-          <label for="region">State:</label>
-          <input id="region" name="region" required />
-        </div>
-        <div>
-          <label for="postal_code">Postal Code:</label>
-          <input id="postal_code" name="postal_code" required />
-        </div>
-        <div style="grid-column:1/-1">
-          <label>Payment Method:</label>
-          <div id="card-element"></div>
+      <!-- Action buttons -->
+      <div class="actions">
+        <button id="btn-charge-now" type="button" class="btn btn-green">Charge Now</button>
+        <div style="flex:1;">
+          <button id="btn-charge-later" type="button" class="btn btn-orange">Charge Later</button>
+          <div class="sublabel">Charges scheduled in America/New_York time zone</div>
+          <input id="charge-date" type="date" required />
         </div>
       </div>
-      <button type="submit" id="submit" class="btn-green">Submit</button>
     </form>
-    <p id="message" class="error"></p>
+
+    <!-- Loading GIF -->
+    <div id="loading-gif">
+      <div class="tenor-gif-embed"
+           data-postid="14552965973889090211"
+           data-share-method="host"
+           data-aspect-ratio="1"
+           data-width="100%">
+        <a href="https://tenor.com/view/loading-gif-gif-14552965973889090211">Loading</a>
+        from <a href="https://tenor.com/search/loading+gif-stickers">Tenor</a>
+      </div>
+      <script type="text/javascript" async src="https://tenor.com/embed.js"></script>
+    </div>
+
+    <p id="message" style="margin-top:1em; font-weight:600;"></p>
   </div>
 
   <script>
-    // 1) Sidebar clock
-    function updateTime() {
-      const opts = {
-        timeZone: 'America/New_York',
-        month: 'long', day: 'numeric',
-        hour: 'numeric', minute: '2-digit',
-        hour12: true
-      };
-      document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
-    }
-    updateTime();
-    setInterval(updateTime, 60000);
-
-    // 2) Stripe setup
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const elements = stripe.elements();
-    const card = elements.create('card', {
-      style: { base: { fontFamily: 'Inter, sans-serif' } }
-    });
+    const card = elements.create('card', { style:{ base:{ fontFamily:'Inter, sans-serif' } } });
     card.mount('#card-element');
 
-    let cardComplete = false;
-    card.on('change', ev => {
-      const msg = document.getElementById('message');
-      if (ev.error) {
-        msg.textContent = ev.error.message;
-      } else {
-        msg.textContent = '';
-      }
-      cardComplete = ev.complete;
-    });
+    const form       = document.getElementById('customer-form');
+    const btnNow     = document.getElementById('btn-charge-now');
+    const btnLater   = document.getElementById('btn-charge-later');
+    const dateInput  = document.getElementById('charge-date');
+    const loadingGif = document.getElementById('loading-gif');
+    const message    = document.getElementById('message');
 
-    // 3) Form submission & validation
-    document.getElementById('cust-form').addEventListener('submit', async e => {
-      e.preventDefault();
-      const form = e.target;
-      const msg  = document.getElementById('message');
-      msg.style.color = '#dc3545';
-      msg.textContent  = '';
+    // Helper: show/hide loading
+    function showLoading(show) {
+      loadingGif.style.display = show ? 'block' : 'none';
+    }
+    function showMessage(text, color='#000') {
+      message.textContent = text;
+      message.style.color = color;
+    }
 
-      // Validate fields
-      if (!form.checkValidity()) {
-        msg.textContent = 'Please fill out all required fields.';
-        return;
-      }
-      // Validate card
-      if (!cardComplete) {
-        msg.textContent = 'Please complete the card details.';
-        return;
-      }
+    // 1) Create Customer on Stripe
+    async function createCustomer(data) {
+      const res = await fetch('/.netlify/functions/create-customer', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+      });
+      const { customerId, error } = await res.json();
+      if (error) throw new Error(error);
+      return customerId;
+    }
 
-      // Disable to prevent double-click
-      document.getElementById('submit').disabled = true;
+    // 2) Create SetupIntent
+    async function getClientSecret(customerId) {
+      const res = await fetch('/.netlify/functions/create-setup-intent', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ customerId })
+      });
+      const { clientSecret, error } = await res.json();
+      if (error) throw new Error(error);
+      console.log('🔑 SetupIntent secret:', clientSecret);
+      return clientSecret;
+    }
 
+    // 3) Confirm Card Setup
+    async function confirmCard(clientSecret) {
+      const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, {
+        payment_method: { card }
+      });
+      if (error) throw error;
+      return setupIntent.payment_method;
+    }
+
+    // 4a) Charge Now
+    btnNow.onclick = async () => {
+      showMessage('', '#000'); showLoading(true);
       try {
-        // 4) Create customer + SetupIntent
-        const payload = {
-          name: form.name.value.trim(),
-          email: form.email.value.trim(),
-          phone: form.phone.value.trim(),
-          address: {
-            line1: form.addr1.value.trim(),
-            city: form.city.value.trim(),
-            state: form.region.value.trim(),
-            postal_code: form.postal_code.value.trim(),
-            country: 'US'
-          }
+        // gather form data
+        const customerData = {
+          name:      form.company.value,
+          email:     form.email.value,
+          phone:     form.phone.value,
+          address:   form.address.value
         };
-        const res1 = await fetch('/.netlify/functions/create-customer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!res1.ok) throw new Error('Could not create customer');
-        const { customerId, clientSecret } = await res1.json();
+        const customerId     = await createCustomer(customerData);
+        const clientSecret   = await getClientSecret(customerId);
+        const paymentMethod  = await confirmCard(clientSecret);
 
-        // 5) Confirm card setup
-        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret, {
-          payment_method: { card }
+        // call charge-now
+        const res = await fetch('/.netlify/functions/charge-now', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            customerId,
+            paymentMethodId: paymentMethod,
+            productId:       'prod_KRxEr46XEWhQLm'
+          })
         });
-        if (error) throw error;
-
-        // 6) Attach payment method
-        await fetch('/.netlify/functions/attach-method', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customerId, paymentMethodId: setupIntent.payment_method })
-        });
-
-        // Success!
-        msg.style.color = '#28a745';
-        msg.textContent   = '✅ Customer created and card saved!';
+        const { invoice, error } = await res.json();
+        if (error) throw new Error(error);
+        showMessage('✅ Charged successfully! Invoice: ' + invoice.id, 'green');
       } catch (err) {
-        // On any error, re-enable button and show the message
-        document.getElementById('submit').disabled = false;
-        msg.textContent = err.message || 'An error occurred.';
+        showMessage('❌ ' + err.message, 'red');
+      } finally {
+        showLoading(false);
       }
-    });
+    };
+
+    // 4b) Charge Later
+    btnLater.onclick = async () => {
+      showMessage('', '#000'); showLoading(true);
+      try {
+        const scheduledDate = dateInput.value;
+        if (!scheduledDate) throw new Error('Please pick a date.');
+
+        const customerData = {
+          name:      form.company.value,
+          email:     form.email.value,
+          phone:     form.phone.value,
+          address:   form.address.value
+        };
+        const customerId    = await createCustomer(customerData);
+        const clientSecret  = await getClientSecret(customerId);
+        const paymentMethod = await confirmCard(clientSecret);
+
+        // call schedule-charge
+        const res = await fetch('/.netlify/functions/schedule-charge', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            customerId,
+            paymentMethodId: paymentMethod,
+            productId:       'prod_KRxEr46XEWhQLm',
+            date:            scheduledDate
+          })
+        });
+        const { error } = await res.json();
+        if (error) throw new Error(error);
+
+        showMessage(`✅ Scheduled! Will charge on ${scheduledDate} (America/New_York)`, 'green');
+      } catch (err) {
+        showMessage('❌ ' + err.message, 'red');
+      } finally {
+        showLoading(false);
+      }
+    };
   </script>
 </body>
 </html>
