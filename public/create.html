@@ -84,11 +84,18 @@
       margin-top:1em;
     }
 
+    /* Loading spinner (hidden by default) */
+    #loading {
+      display: none;
+      text-align: center;
+      margin-top: 1em;
+    }
+
     /* Confirmation modal */
     #confirm-modal {
       position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,0.6);
-      display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.6); display:none;
+      align-items:center; justify-content:center;
     }
     #confirm-box {
       background:#fff; padding:2em; border-radius:8px;
@@ -160,6 +167,15 @@
 
       <button id="submit-btn" type="submit">Submit</button>
     </form>
+
+    <!-- Loading spinner -->
+    <div id="loading">
+      <video
+        src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4"
+        autoplay loop muted
+        width="50" height="50"
+      ></video>
+    </div>
   </div>
 
   <!-- Confirmation Modal -->
@@ -185,10 +201,14 @@
     // Stripe setup
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const elements = stripe.elements();
-    const cardEl = elements.create('card',{
-      style:{ base:{ fontFamily:'Inter, sans-serif' } }
-    });
+    const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
     cardEl.mount('#card-element');
+
+    // Helper to toggle loader
+    const loading = document.getElementById('loading');
+    function showLoader(on) {
+      loading.style.display = on ? 'block' : 'none';
+    }
 
     const form      = document.getElementById('cust-form');
     const dateInput = document.getElementById('charge-date');
@@ -199,13 +219,13 @@
     const cancelBtn = document.getElementById('modal-cancel');
 
     // Show/hide date picker
-    form.chargeOption.forEach(r => {
-      r.onchange = () => {
-        dateInput.style.display = r.value==='later' ? 'block' : 'none';
+    form.chargeOption.forEach(radio => {
+      radio.onchange = () => {
+        dateInput.style.display = radio.value==='later' ? 'block' : 'none';
       };
     });
 
-    // Confirmation modal helper
+    // Confirmation modal logic
     let countdownInterval, resolveFn, rejectFn;
     function showConfirm(text){
       msg.textContent = text;
@@ -227,9 +247,10 @@
     okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
     cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('User cancelled')); };
 
-    // Main form submit flow (unchanged)
+    // Main form submit flow
     form.onsubmit = async e => {
       e.preventDefault();
+      showLoader(true);
       try {
         // 1) Create customer
         const createRes = await fetch('/.netlify/functions/create-customer',{ method:'POST',
@@ -304,6 +325,8 @@
 
       } catch (err) {
         alert('❌ ' + err.message);
+      } finally {
+        showLoader(false);
       }
     };
   </script>
