@@ -17,7 +17,7 @@
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    * { box-sizing:border-box; }
+    * { box-sizing: border-box; }
     body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     .sidebar {
       position:fixed; top:0; left:0; width:280px; height:100%;
@@ -28,25 +28,67 @@
     .sidebar p, .sidebar a { margin:0 0 1em; color:#fff; text-decoration:none; }
     .content { margin-left:280px; padding:2em; }
     h1 { margin-bottom:1em; }
+
     form > div { margin-bottom:1em; }
     label { font-weight:600; display:block; margin-bottom:.5em; }
     input, .StripeElement { width:100%; padding:.75em; font-size:1em; }
-    .radio-group { display:flex; gap:1em; }
-    .radio-group label { cursor:pointer; }
-    .radio-group .now { color:#00D084; font-weight:700; }
-    .radio-group .later { color:#ff7800; font-weight:700; }
-    #charge-date { display:none; margin-top:.5em; padding:.5em; }
-    button, .btn {
-      padding:.75em 1.5em; font-weight:600; border:none;
-      border-radius:6px; cursor:pointer;
+
+    /* Date picker narrower */
+    #charge-date {
+      display: none;
+      width: 250px;
+      margin-top: .5em;
+      padding: .5em;
     }
-    #submit-btn { background:#007bff; color:#fff; width:100%; margin-top:1em; }
+
+    /* Card element border */
+    #card-element {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: .25em;
+    }
+
+    /* Styled radio buttons */
+    .radio-group { display:flex; gap:1em; margin-bottom:1em; }
+    .radio-group .option input { display: none; }
+    .radio-group .option span {
+      display: inline-block;
+      padding: .5em 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .radio-group .option.now input:checked + span {
+      background: #00D084;
+      color: #fff;
+      border-color: #00D084;
+    }
+    .radio-group .option.later input:checked + span {
+      background: #ff7800;
+      color: #fff;
+      border-color: #ff7800;
+    }
+
+    button, .btn {
+      padding: .75em 1.5em;
+      font-weight:600;
+      border:none;
+      border-radius:6px;
+      cursor:pointer;
+    }
+    #submit-btn {
+      background:#007bff;
+      color:#fff;
+      width:100%;
+      margin-top:1em;
+    }
 
     /* Confirmation modal */
     #confirm-modal {
       position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,0.6); display:none;
-      align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.6);
+      display:none; align-items:center; justify-content:center;
     }
     #confirm-box {
       background:#fff; padding:2em; border-radius:8px;
@@ -100,8 +142,14 @@
       </div>
 
       <div class="radio-group">
-        <label><input type="radio" name="chargeOption" value="now" required/> <span class="now">Charge Now</span></label>
-        <label><input type="radio" name="chargeOption" value="later"/> <span class="later">Charge Later</span></label>
+        <label class="option now">
+          <input type="radio" name="chargeOption" value="now" required />
+          <span>Charge Now</span>
+        </label>
+        <label class="option later">
+          <input type="radio" name="chargeOption" value="later" />
+          <span>Charge Later</span>
+        </label>
       </div>
       <input id="charge-date" type="date"/>
 
@@ -134,10 +182,12 @@
     }
     updateTime(); setInterval(updateTime,60000);
 
-    // Setup Stripe.js and Card Element
+    // Stripe setup
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const elements = stripe.elements();
-    const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+    const cardEl = elements.create('card',{
+      style:{ base:{ fontFamily:'Inter, sans-serif' } }
+    });
     cardEl.mount('#card-element');
 
     const form      = document.getElementById('cust-form');
@@ -148,14 +198,14 @@
     const okBtn     = document.getElementById('modal-ok');
     const cancelBtn = document.getElementById('modal-cancel');
 
-    // Toggle date picker
-    form.chargeOption.forEach(radio => {
-      radio.onchange = () => {
-        dateInput.style.display = radio.value==='later' ? 'block' : 'none';
+    // Show/hide date picker
+    form.chargeOption.forEach(r => {
+      r.onchange = () => {
+        dateInput.style.display = r.value==='later' ? 'block' : 'none';
       };
     });
 
-    // Confirmation modal logic
+    // Confirmation modal helper
     let countdownInterval, resolveFn, rejectFn;
     function showConfirm(text){
       msg.textContent = text;
@@ -166,7 +216,7 @@
         clearInterval(countdownInterval);
         countdownInterval = setInterval(()=>{
           t--; cd.textContent = t;
-          if(t<=0){
+          if (t <= 0) {
             clearInterval(countdownInterval);
             modal.style.display = 'none';
             rej(new Error('Confirmation timed out'));
@@ -177,7 +227,7 @@
     okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
     cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('User cancelled')); };
 
-    // Main form submit
+    // Main form submit flow (unchanged)
     form.onsubmit = async e => {
       e.preventDefault();
       try {
@@ -218,7 +268,7 @@
         if (pmErr) throw new Error(pmErr);
         const last4 = card.last4;
 
-        // 5) Branch logic
+        // 5) Branch on choice
         const opt = form.chargeOption.value;
         if (opt === 'now') {
           await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK to confirm.`);
