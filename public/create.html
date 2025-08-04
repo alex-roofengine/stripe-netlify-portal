@@ -134,13 +134,12 @@
     }
     updateTime(); setInterval(updateTime,60000);
 
-    // Stripe setup
+    // Setup Stripe.js and Card Element
     const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
     const elements = stripe.elements();
     const cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
     cardEl.mount('#card-element');
 
-    // Form & modal elements
     const form      = document.getElementById('cust-form');
     const dateInput = document.getElementById('charge-date');
     const modal     = document.getElementById('confirm-modal');
@@ -149,25 +148,27 @@
     const okBtn     = document.getElementById('modal-ok');
     const cancelBtn = document.getElementById('modal-cancel');
 
-    // Show/hide date picker
-    form.chargeOption.forEach(r => {
-      r.onchange = () => dateInput.style.display = r.value==='later'?'block':'none';
+    // Toggle date picker
+    form.chargeOption.forEach(radio => {
+      radio.onchange = () => {
+        dateInput.style.display = radio.value==='later' ? 'block' : 'none';
+      };
     });
 
-    // Confirmation modal helper
+    // Confirmation modal logic
     let countdownInterval, resolveFn, rejectFn;
     function showConfirm(text){
       msg.textContent = text;
-      let time=20; cd.textContent=time;
-      modal.style.display='flex';
-      return new Promise((res,rej)=>{
-        resolveFn=res; rejectFn=rej;
+      let t = 20; cd.textContent = t;
+      modal.style.display = 'flex';
+      return new Promise((res, rej) => {
+        resolveFn = res; rejectFn = rej;
         clearInterval(countdownInterval);
-        countdownInterval=setInterval(()=>{
-          time--; cd.textContent=time;
-          if(time<=0){
+        countdownInterval = setInterval(()=>{
+          t--; cd.textContent = t;
+          if(t<=0){
             clearInterval(countdownInterval);
-            modal.style.display='none';
+            modal.style.display = 'none';
             rej(new Error('Confirmation timed out'));
           }
         },1000);
@@ -176,71 +177,83 @@
     okBtn.onclick     = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; resolveFn(); };
     cancelBtn.onclick = ()=>{ clearInterval(countdownInterval); modal.style.display='none'; rejectFn(new Error('User cancelled')); };
 
-    // Workflow on submit
+    // Main form submit
     form.onsubmit = async e => {
       e.preventDefault();
       try {
-        // 1) create customer
-        const custRes = await fetch('/.netlify/functions/create-customer',{ method:'POST',
+        // 1) Create customer
+        const createRes = await fetch('/.netlify/functions/create-customer',{ method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
-            name:         form.company.value,
-            email:        form.email.value,
-            phone:        form.phone.value,
-            line1:        form.line1.value,
-            city:         form.city.value,
-            state:        form.state.value,
-            postal_code:  form.postal_code.value
+            name:        form.company.value,
+            email:       form.email.value,
+            phone:       form.phone.value,
+            line1:       form.line1.value,
+            city:        form.city.value,
+            state:       form.state.value,
+            postal_code: form.postal_code.value
           })
         });
-        const { customerId, error:custErr } = await custRes.json();
-        if(custErr) throw new Error(custErr);
+        const { customerId, error:custErr } = await createRes.json();
+        if (custErr) throw new Error(custErr);
 
-        // 2) create setup intent
+        // 2) Create SetupIntent
         const siRes = await fetch('/.netlify/functions/create-setup-intent',{ method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ customerId })
+          body: JSON.stringify({ customerId })
         });
         const { clientSecret, error:siErr } = await siRes.json();
-        if(siErr) throw new Error(siErr);
+        if (siErr) throw new Error(siErr);
 
-        // 3) confirm card
+        // 3) Confirm card
         const { setupIntent, error:ciErr } = await stripe.confirmCardSetup(
           clientSecret, { payment_method:{ card:cardEl } }
         );
-        if(ciErr) throw ciErr;
-        const pmId  = setupIntent.payment_method;
-        const last4 = setupIntent.payment_method_details.card.last4;
+        if (ciErr) throw ciErr;
+        const pmId = setupIntent.payment_method;
 
-        // 4) handle choice
+        // 4) Retrieve PaymentMethod to get last4
+        const pmRes = await fetch(`/.netlify/functions/retrieve-payment-method?paymentMethodId=${pmId}`);
+        const { card, error:pmErr } = await pmRes.json();
+        if (pmErr) throw new Error(pmErr);
+        const last4 = card.last4;
+
+        // 5) Branch logic
         const opt = form.chargeOption.value;
-        if(opt==='now'){
+        if (opt === 'now') {
           await showConfirm(`We will now charge the card ending in ${last4} the amount of $2,000 USD. Click OK to confirm.`);
           const chRes = await fetch('/.netlify/functions/charge-now',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_KRxEr46XEWhQLm' })
+            body: JSON.stringify({
+              customerId,
+              paymentMethodId: pmId,
+              productId: 'prod_KRxEr46XEWhQLm'
+            })
           });
           const { invoice, error:chErr } = await chRes.json();
-          if(chErr) throw new Error(chErr);
-          alert('✅ Charged! Invoice: '+invoice.id);
+          if (chErr) throw new Error(chErr);
+          alert('✅ Charged! Invoice: ' + invoice.id);
         } else {
-          if(!dateInput.value) throw new Error('Please pick a date.');
-          const dateStr = new Date(dateInput.value+'T09:00:00-04:00')
-            .toLocaleString('en-US',{timeZone:'America/New_York',dateStyle:'long',timeStyle:'short'});
+          if (!dateInput.value) throw new Error('Please pick a date.');
+          const dateStr = new Date(dateInput.value + 'T09:00:00-04:00')
+            .toLocaleString('en-US',{ timeZone:'America/New_York', dateStyle:'long', timeStyle:'short' });
           await showConfirm(`We will charge the card ending in ${last4} on ${dateStr}. Click OK to confirm.`);
           const scRes = await fetch('/.netlify/functions/schedule-charge',{ method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              customerId, paymentMethodId:pmId,
-              productId:'prod_KRxEr46XEWhQLm', date:dateInput.value
+            body: JSON.stringify({
+              customerId,
+              paymentMethodId: pmId,
+              productId: 'prod_KRxEr46XEWhQLm',
+              date: dateInput.value
             })
           });
           const { error:scErr } = await scRes.json();
-          if(scErr) throw new Error(scErr);
-          alert('✅ Charge scheduled for '+dateStr);
+          if (scErr) throw new Error(scErr);
+          alert('✅ Charge scheduled for ' + dateStr);
         }
-      } catch(err) {
-        alert('❌ '+err.message);
+
+      } catch (err) {
+        alert('❌ ' + err.message);
       }
     };
   </script>
