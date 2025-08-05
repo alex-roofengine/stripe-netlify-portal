@@ -13,7 +13,7 @@
     rel="stylesheet"/>
 
   <style>
-    * { box-sizing: border-box; }
+    * { box-sizing:border-box; }
     body,html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     .sidebar {
       position:fixed; top:0; left:0; width:280px; height:100%;
@@ -30,34 +30,31 @@
     .section { padding:20px 0; border-bottom:1px solid #eee; }
     .section:last-child { border-bottom:none; }
 
-    /* Plan */
+    /* Plan & Actions */
     #plan h2 { font-size:1.25em; margin:0 0 .5em; }
-    #plan p { margin:0; }
-
-    /* Actions */
+    #plan p   { margin:0; }
     #actions {
       display:flex; gap:70px; margin:20px 0;
     }
-    #actions .btn {
+    .btn {
       padding:1em 2em; border:none; border-radius:6px;
       font-weight:600; font-size:1em; cursor:pointer; min-width:140px;
     }
-    .btn-orange  { background:#ff7800; color:#000; }
-    .btn-gray    { background:#212121; color:#fff; }
+    .btn-orange { background:#ff7800; color:#000; }
+    .btn-gray   { background:#212121; color:#fff; }
 
     /* Payments */
     #pms { max-width:600px; }
     .pm-item {
-      display:flex; align-items:center; justify-content:space-between;
+      display:flex; justify-content:space-between; align-items:center;
       padding:.75em; border:1px solid #ccc; border-radius:6px;
       margin-bottom:.75em;
     }
     .pm-desc { font-weight:500; }
     .pm-desc .expiry { margin-left:1em; color:#555; }
     .default-badge {
-      background:#007bff; color:#fff;
-      padding:2px 6px; border-radius:4px; font-size:.8em;
-      margin-left:.75em;
+      background:#007bff; color:#fff; padding:2px 6px;
+      border-radius:4px; font-size:.8em; margin-left:.75em;
     }
     .pm-actions button {
       background:transparent; border:1px solid #007bff;
@@ -68,12 +65,12 @@
     /* New card form */
     .new-pm-wrapper {
       border:1px solid #ccc; padding:1em; border-radius:6px;
-      max-width:400px; margin-top:1em;
+      margin-top:1em; max-width:400px;
     }
     .btn-save {
-      background:#00D084; color:#fff;
-      border:none; border-radius:6px; padding:1em 2em;
-      font-weight:600; cursor:pointer; margin-top:.5em;
+      background:#00D084; color:#fff; border:none;
+      border-radius:6px; padding:1em 2em; font-weight:600;
+      cursor:pointer; margin-top:.5em;
     }
 
     @media(max-width:768px){
@@ -121,28 +118,27 @@
     </div>
   </div>
 
-  <!-- Stripe.js + Inline Key -->
-  <script>
-    window.STRIPE_PUBLISHABLE_KEY = 'pk_test_XXXXXXXXXXXXXXXXXXXXXXXX';
-  </script>
+  <!-- Stripe.js + publishable key fetched from Netlify -->
   <script src="https://js.stripe.com/v3/"></script>
-
   <script>
-    async function initUpdate() {
-      const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
+    async function init() {
+      // 1) get your publishable key at runtime
+      const r = await fetch('/.netlify/functions/get-publishable-key');
+      const { publishableKey } = await r.json();
+      const stripe = Stripe(publishableKey);
 
-      // Sidebar clock
+      // 2) sidebar clock
       function updateTime(){
         const opts={ timeZone:'America/New_York',
                      month:'long', day:'numeric',
                      hour:'numeric', minute:'2-digit',
                      hour12:true };
         document.getElementById('timestamp').textContent =
-          'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+          'Today is '+ new Intl.DateTimeFormat('en-US',opts).format(new Date()) +' EST';
       }
       updateTime(); setInterval(updateTime,60000);
 
-      // get customerId
+      // 3) grab customerId
       const params = new URLSearchParams(location.search);
       const custId = params.get('customerId');
       if (!custId) {
@@ -151,7 +147,7 @@
         return;
       }
 
-      // context & header
+      // 4) context & header
       fetch('/.netlify/functions/list-customers')
         .then(r=>r.json()).then(list=>{
           const c = list.find(x=>x.id===custId);
@@ -163,7 +159,7 @@
           }
         });
 
-      // subscriptions
+      // 5) subscriptions (most recent)
       fetch(`/.netlify/functions/list-subscriptions?customerId=${custId}`)
         .then(r=>r.json()).then(subs=>{
           const planEl = document.getElementById('plan');
@@ -171,8 +167,7 @@
             planEl.innerHTML = '<p>No Retainer Added Yet.</p>';
             document.getElementById('actions').style.display = 'none';
           } else {
-            // pick most recent
-            subs.sort((a,b)=>b.created - a.created);
+            subs.sort((a,b)=>b.created-a.created);
             const s = subs[0];
             let status = s.status;
             if (status==='canceled' && s.pause_collection) status='canceled';
@@ -181,7 +176,7 @@
                        : status==='Paused'? '⚠️'
                        :                      '🚫';
             planEl.innerHTML = `
-              <h2>${s.plan.product.name || 'Unnamed'} <span>${icon} ${status}</span></h2>
+              <h2>${s.plan.product.name||'Unnamed'} <span>${icon} ${status}</span></h2>
               <p>${(s.plan.amount/100).toFixed(2)} USD · renews on
                 ${new Date(s.current_period_end*1000).toLocaleDateString()}</p>
             `;
@@ -202,7 +197,7 @@
           }
         });
 
-      // load payment methods
+      // 6) payment methods
       async function loadPMs(){
         const { paymentMethods, defaultPaymentMethod } =
           await fetch(`/.netlify/functions/list-payment-methods?customerId=${custId}`)
@@ -213,8 +208,139 @@
         paymentMethods.forEach(pm=>{
           const div = document.createElement('div');
           div.className = 'pm-item';
+
           const brand = pm.card.brand.charAt(0).toUpperCase()+pm.card.brand.slice(1);
-          const desc = document.createElement('div');
+          const desc  = document.createElement('div');
           desc.className = 'pm-desc';
           desc.textContent = `${brand} •••• ${pm.card.last4}`;
-          const exp = document.createElement('span');
+          const exp  = document.createElement('span');
+          exp.className = 'expiry';
+          exp.textContent = `Expires ${pm.card.exp_month}/${pm.card.exp_year}`;
+          desc.append(exp);
+
+          const actions = document.createElement('div');
+          actions.className = 'pm-actions';
+
+          if (pm.id===defaultPaymentMethod) {
+            const b = document.createElement('span');
+            b.className = 'default-badge';
+            b.textContent = 'Default';
+            desc.append(b);
+          } else {
+            const btn = document.createElement('button');
+            btn.textContent = 'Set as default';
+            btn.onclick = ()=>{
+              fetch('/.netlify/functions/set-default-method',{
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ customerId:custId, paymentMethodId:pm.id })
+              }).then(()=>loadPMs());
+            };
+            actions.append(btn);
+
+            const del = document.createElement('button');
+            del.textContent = '✖';
+            del.onclick = ()=>{
+              if(!confirm('Remove this payment method?')) return;
+              fetch('/.netlify/functions/detach-method',{
+                method:'POST', body: pm.id
+              }).then(()=>loadPMs());
+            };
+            actions.append(del);
+          }
+
+          div.append(desc, actions);
+          container.append(div);
+        });
+      }
+      loadPMs();
+
+      // 7) add payment method
+      document.getElementById('add-pm').onclick = async ()=>{
+        const { clientSecret } = await fetch(
+          '/.netlify/functions/create-setup-intent',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ customerId:custId })
+          }
+        ).then(r=>r.json());
+
+        const area = document.getElementById('new-pm-area');
+        area.innerHTML = `
+          <div class="new-pm-wrapper">
+            <div id="new-card"></div>
+            <button id="save-pm" class="btn-save">Save Card</button>
+          </div>
+        `;
+        const elements2 = stripe.elements();
+        const card2 = elements2.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+        card2.mount('#new-card');
+
+        document.getElementById('save-pm').onclick = async ()=>{
+          const { setupIntent, error } = await stripe.confirmCardSetup(
+            clientSecret,{ payment_method:{ card:card2 } }
+          );
+          if(error) return alert(error.message);
+          await fetch('/.netlify/functions/attach-method',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              customerId:custId,
+              paymentMethodId: setupIntent.payment_method
+            })
+          });
+          document.getElementById('pm-message').textContent =
+            '✅ Payment method added';
+          loadPMs();
+        };
+      };
+
+      // 8) billing history
+      fetch(`/.netlify/functions/list-invoices?customerId=${custId}`)
+        .then(r=>r.json()).then(all=>{
+          const hist = document.getElementById('history');
+          if(!all.length){
+            hist.innerHTML = '<p>No invoices found.</p>';
+            return;
+          }
+          all.slice(0,3).forEach(i=>{
+            const date = new Date(i.created*1000).toLocaleDateString();
+            const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
+            const color = status==='Paid'?'#28a745':'#dc3545';
+            hist.innerHTML += `
+              <div>
+                <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+                • $${(i.amount_paid/100).toFixed(2)}
+                • <span style="color:${color}">${status}</span>
+                ${status==='Failed'?` <em>(Reason: ${i.failure_message})</em>`:''}
+              </div>
+            `;
+          });
+          if(all.length>3){
+            const m = document.createElement('a');
+            m.href='#'; m.textContent='View more'; m.style.display='block'; m.style.marginTop='1em';
+            m.onclick = e=>{
+              e.preventDefault(); hist.innerHTML='';
+              all.forEach(i=>{
+                const date = new Date(i.created*1000).toLocaleDateString();
+                const status = i.status.charAt(0).toUpperCase()+i.status.slice(1);
+                const color = status==='Paid'?'#28a745':'#dc3545';
+                hist.innerHTML += `
+                  <div>
+                    <a href="${i.hosted_invoice_url}" target="_blank">${date}</a>
+                    • $${(i.amount_paid/100).toFixed(2)}
+                    • <span style="color:${color}">${status}</span>
+                    ${status==='Failed'?` <em>(Reason: ${i.failure_message})</em>`:''}
+                  </div>
+                `;
+              });
+            };
+            hist.append(m);
+          }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
