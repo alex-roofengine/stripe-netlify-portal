@@ -1,5 +1,4 @@
 // netlify/functions/get-publishable-key.js
-
 exports.handler = async () => {
   return {
     statusCode: 200,
