@@ -109,7 +109,7 @@
       cardEl.mount('#card-element');
 
       // fetch latest outbound client
-      fetch('/.netlify/functions/get-latest-outbound-customer')
+      fetch('/.netlify/functions/get-latest-outbound-customer.js')
       const { customer } = await clientRes.json();
       if (!customer) {
         document.getElementById('client-info').textContent = '❌ No outbound client found';
