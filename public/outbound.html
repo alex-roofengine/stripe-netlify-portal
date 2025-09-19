@@ -68,4 +68,134 @@
 <body>
   <div class="sidebar">
     <h2>RoofEngine<br>Billing Portal</h2>
-    <p><a href="/" style="color:white;">←
+    <p><a href="/" style="color:white;">← Home</a></p>
+  </div>
+
+  <div class="content">
+    <h1>Outbound Client Billing</h1>
+    <div id="client-info">Loading client...</div>
+
+    <div>
+      <button id="charge-now" class="btn">Charge Now</button>
+      <button id="charge-later" class="btn">Charge Later</button>
+    </div>
+
+    <div id="date-picker" style="margin-top: 12px; display:none;">
+      <label>Select Charge Date:</label><br>
+      <input type="date" id="charge-date" style="width:250px; padding:8px;">
+    </div>
+
+    <h3>Card Details</h3>
+    <div id="card-element"></div>
+    <button id="submit">Submit</button>
+    <div id="message"></div>
+  </div>
+
+  <script>
+    let stripe, elements, card, selectedOption = null;
+    let currentCustomerId = null;
+
+    async function loadOutboundClient() {
+      try {
+        const res = await fetch('/.netlify/functions/get-latest-outbound-customer');
+        const data = await res.json();
+
+        if (!res.ok) {
+          document.getElementById('client-info').innerText = data.error || 'Failed to load client';
+          return;
+        }
+
+        currentCustomerId = data.id;
+        document.getElementById('client-info').innerText = 
+          `Loaded: ${data.name} (${data.email || 'no email'})`;
+      } catch (err) {
+        document.getElementById('client-info').innerText = 'Error loading client.';
+      }
+    }
+
+    function setupStripe() {
+      stripe = Stripe("YOUR_PUBLISHABLE_KEY"); // replaced by Netlify env at build
+      elements = stripe.elements();
+      card = elements.create("card");
+      card.mount("#card-element");
+    }
+
+    function selectOption(option) {
+      selectedOption = option;
+      document.getElementById("charge-now").classList.remove("active");
+      document.getElementById("charge-later").classList.remove("active");
+
+      if (option === "now") {
+        document.getElementById("charge-now").classList.add("active");
+        document.getElementById("date-picker").style.display = "none";
+      } else {
+        document.getElementById("charge-later").classList.add("active");
+        document.getElementById("date-picker").style.display = "block";
+      }
+    }
+
+    async function handleSubmit() {
+      if (!currentCustomerId) {
+        document.getElementById("message").innerText = "No outbound client available.";
+        return;
+      }
+      if (!selectedOption) {
+        document.getElementById("message").innerText = "Please select Charge Now or Charge Later.";
+        return;
+      }
+
+      document.getElementById("message").innerText = "Processing...";
+
+      const { paymentMethod, error } = await stripe.createPaymentMethod({
+        type: "card",
+        card: card,
+      });
+
+      if (error) {
+        document.getElementById("message").innerText = error.message;
+        return;
+      }
+
+      let endpoint;
+      let payload = {
+        customerId: currentCustomerId,
+        paymentMethodId: paymentMethod.id
+      };
+
+      if (selectedOption === "now") {
+        endpoint = "/.netlify/functions/outbound-client-charge-now";
+      } else {
+        const date = document.getElementById("charge-date").value;
+        if (!date) {
+          document.getElementById("message").innerText = "Please select a date for Charge Later.";
+          return;
+        }
+        endpoint = "/.netlify/functions/outbound-client-charge-later";
+        payload.date = date;
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById("message").innerText = data.error || "Something went wrong.";
+        return;
+      }
+
+      document.getElementById("message").style.color = "green";
+      document.getElementById("message").innerText = "✅ Success!";
+    }
+
+    document.getElementById("charge-now").addEventListener("click", () => selectOption("now"));
+    document.getElementById("charge-later").addEventListener("click", () => selectOption("later"));
+    document.getElementById("submit").addEventListener("click", handleSubmit);
+
+    loadOutboundClient();
+    setupStripe();
+  </script>
+</body>
+</html>
