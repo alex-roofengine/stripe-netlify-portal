@@ -5,60 +5,67 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Outbound Client Billing</title>
 
-  <!-- Fonts & Stripe -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stripe.js -->
   <script src="https://js.stripe.com/v3/"></script>
 
   <style>
-    body { margin:0; font-family:'Inter',sans-serif; display:flex; }
+    * { box-sizing: border-box; }
+    body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
     .sidebar {
-      width:250px; background:#000; color:#fff; padding:2em;
-      display:flex; flex-direction:column; height:100vh;
+      position:fixed; top:0; left:0; width:280px; height:100%;
+      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
     }
-    .sidebar img { width:140px; margin-bottom:1em; }
-    .sidebar a { color:#fff; text-decoration:none; margin-top:1em; }
+    .sidebar img { width:150px; margin-bottom:1em; }
+    .sidebar h2 { font-size:1.25em; margin-bottom:1em; }
+    .sidebar a { margin-top:auto; color:#fff; text-decoration:none; }
 
-    .content { flex:1; padding:2em; }
+    .content { margin-left:280px; padding:2em; }
     h1 { margin-bottom:1em; }
 
-    form { display:grid; grid-template-columns:1fr 1fr; gap:1em; }
-    .full { grid-column:1 / -1; }
-    label { font-weight:600; margin-bottom:.5em; display:block; }
-    input, .StripeElement {
-      width:100%; padding:.75em; border:1px solid #ccc; border-radius:4px;
+    label { font-weight:600; display:block; margin-bottom:.5em; }
+    input, .StripeElement { width:100%; padding:.75em; font-size:1em; margin-bottom:1em; }
+
+    /* Card element styling */
+    #card-element {
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 1em;
     }
 
-    /* Options */
-    .radio-group { display:flex; gap:1em; margin-bottom:1em; }
+    /* Radio buttons */
+    .radio-group {
+      display:flex; gap:1em; margin-bottom:1em;
+    }
+    .radio-group .option { flex:1; text-align:center; }
     .radio-group input { display:none; }
-    .radio-group label { flex:1; text-align:center; cursor:pointer; padding:.75em; border:2px solid #ccc; border-radius:6px; }
-    .radio-group input:checked + span { color:#fff; }
-    .radio-now input:checked + span { background:#00D084; border-color:#00D084; }
-    .radio-later input:checked + span { background:#ff7800; border-color:#ff7800; }
-
-    button { padding:.75em; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
-    #submit-btn { background:#007bff; color:#fff; grid-column:1 / -1; }
-
-    #charge-date { display:none; width:250px; }
-
-    #loading { display:none; margin-top:1em; text-align:center; }
-    #confirm-modal {
-      display:none; position:fixed; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,0.6); align-items:center; justify-content:center;
+    .radio-group span {
+      display:block; padding:1em; border:2px solid #ccc; border-radius:6px;
+      cursor:pointer; font-weight:600;
     }
-    #confirm-box { background:#fff; padding:2em; border-radius:8px; text-align:center; max-width:400px; }
-    #countdown { font-size:1.2em; margin:1em 0; }
-    #modal-ok { background:#00D084; color:#fff; margin-right:1em; }
-    #modal-cancel { background:#dc3545; color:#fff; }
+    .radio-group input:checked + span {
+      background:#00D084; color:#fff; border-color:#00D084;
+    }
+
+    button {
+      padding:.75em 1.5em; font-weight:600;
+      border:none; border-radius:6px; cursor:pointer;
+      width:100%;
+    }
+    #submit-btn { background:#007bff; color:#fff; }
+
+    #loading { margin:1em 0; display:none; }
   </style>
 </head>
 <body>
   <div class="sidebar">
     <img src="assets/logo.svg" alt="RoofEngine" />
     <h2>RoofEngine<br/>Billing Portal</h2>
-    <p id="timestamp"></p>
     <a href="index.html">← Home</a>
   </div>
 
@@ -67,108 +74,117 @@
     <p id="client-info">Loading client...</p>
 
     <form id="outbound-form">
-      <div class="full">
-        <div class="radio-group">
-          <label class="radio-now">
-            <input type="radio" name="chargeOption" value="now" required />
-            <span>Charge Now</span>
-          </label>
-          <label class="radio-later">
-            <input type="radio" name="chargeOption" value="later" />
-            <span>Charge Later</span>
-          </label>
-        </div>
-        <input id="charge-date" type="date" />
+      <div class="radio-group">
+        <label class="option">
+          <input type="radio" name="chargeOption" value="now" required/>
+          <span>Charge Now</span>
+        </label>
+        <label class="option">
+          <input type="radio" name="chargeOption" value="later"/>
+          <span>Charge Later</span>
+        </label>
       </div>
 
-      <div class="full">
-        <label>Card Details</label>
-        <div id="card-element" class="StripeElement"></div>
-      </div>
+      <input id="charge-date" type="date" style="display:none;" />
+
+      <label>Card Details</label>
+      <div id="card-element" class="StripeElement"></div>
 
       <button id="submit-btn" type="submit">Submit</button>
     </form>
 
-    <div id="loading">
-      <video src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4"
-        autoplay loop muted width="50" height="50"></video>
-    </div>
-  </div>
-
-  <!-- Confirmation Modal -->
-  <div id="confirm-modal">
-    <div id="confirm-box">
-      <p id="confirm-msg"></p>
-      <p id="countdown">20</p>
-      <button id="modal-ok">OK</button>
-      <button id="modal-cancel">Cancel</button>
-    </div>
+    <div id="loading">Loading...</div>
   </div>
 
   <script>
-    const stripe = Stripe(window.STRIPE_PUBLISHABLE_KEY);
-    const elements = stripe.elements();
-    const cardEl = elements.create('card');
-    cardEl.mount('#card-element');
+    let stripe, elements, cardEl, customerId, companyName;
 
-    const dateInput = document.getElementById('charge-date');
+    async function init() {
+      // fetch publishable key
+      const keyRes = await fetch('/.netlify/functions/get-publishable-key');
+      const { publishableKey } = await keyRes.json();
+      stripe = Stripe(publishableKey);
+      elements = stripe.elements();
+      cardEl = elements.create('card');
+      cardEl.mount('#card-element');
+
+      // fetch latest outbound client
+      const clientRes = await fetch('/.netlify/functions/get-latest-outbound-customer');
+      const { customer } = await clientRes.json();
+      if (!customer) {
+        document.getElementById('client-info').textContent = '❌ No outbound client found';
+        document.getElementById('outbound-form').style.display = 'none';
+        return;
+      }
+      customerId = customer.id;
+      companyName = customer.name;
+      document.getElementById('client-info').textContent = `Client: ${companyName} (${customer.email})`;
+    }
+
+    init();
+
+    // toggle date picker
     document.querySelectorAll('input[name="chargeOption"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        dateInput.style.display = radio.value === 'later' ? 'block' : 'none';
+      radio.addEventListener('change', e => {
+        document.getElementById('charge-date').style.display =
+          e.target.value === 'later' ? 'block' : 'none';
       });
     });
 
-    // Sidebar clock
-    function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true };
-      document.getElementById('timestamp').textContent =
-        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
-    }
-    updateTime(); setInterval(updateTime,60000);
-
-    // Confirmation modal
-    const modal=document.getElementById('confirm-modal');
-    const msg=document.getElementById('confirm-msg');
-    const cd=document.getElementById('countdown');
-    let resolveFn,rejectFn,countdown;
-    function showConfirm(text){
-      msg.textContent=text; modal.style.display='flex';
-      let t=20; cd.textContent=t;
-      return new Promise((res,rej)=>{
-        resolveFn=res; rejectFn=rej;
-        countdown=setInterval(()=>{ t--; cd.textContent=t;
-          if(t<=0){ clearInterval(countdown); modal.style.display='none'; rej(new Error('Timed out')); }
-        },1000);
-      });
-    }
-    document.getElementById('modal-ok').onclick=()=>{ clearInterval(countdown); modal.style.display='none'; resolveFn(); };
-    document.getElementById('modal-cancel').onclick=()=>{ clearInterval(countdown); modal.style.display='none'; rejectFn(new Error('Cancelled')); };
-
-    // Load latest outbound client
-    let customerId=null;
-    let priceId=null;
-    fetch('/.netlify/functions/get-latest-outbound-customer')
-      .then(r=>r.json()).then(data=>{
-        if(data.error) throw new Error(data.error);
-        customerId=data.customerId;
-        priceId=data.priceId;
-        document.getElementById('client-info').textContent = `Billing client: ${data.name} (${data.email})`;
-      }).catch(err=>{
-        document.getElementById('client-info').textContent='❌ '+err.message;
-      });
-
-    // Submit
-    document.getElementById('outbound-form').onsubmit = async e=>{
+    // handle form submit
+    document.getElementById('outbound-form').onsubmit = async (e) => {
       e.preventDefault();
-      if(!customerId||!priceId) return alert('❌ No client loaded');
+      document.getElementById('loading').style.display = 'block';
 
       try {
-        // SetupIntent
-        const siRes = await fetch('/.netlify/functions/create-setup-intent',{
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({ customerId })
+        // create setup intent
+        const siRes = await fetch('/.netlify/functions/create-setup-intent', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ customerId })
         });
-        const { clientSecret,error:siErr } = await siRes.json();
-        if(siErr) throw new Error(siErr);
+        const { clientSecret, error } = await siRes.json();
+        if (error) throw new Error(error);
 
-        const { setupIntent,error:cardErr } = await stripe.con
+        // confirm card setup
+        const { setupIntent, error:siErr } = await stripe.confirmCardSetup(
+          clientSecret, { payment_method:{ card:cardEl } }
+        );
+        if(siErr) throw siErr;
+        const pmId = setupIntent.payment_method;
+
+        // branch based on charge option
+        const opt = document.querySelector('input[name="chargeOption"]:checked').value;
+        if(opt === 'now'){
+          const chRes = await fetch('/.netlify/functions/outbound-client-charge-now',{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_OUTBOUND' })
+          });
+          const { error:chErr, invoice } = await chRes.json();
+          if(chErr) throw new Error(chErr);
+          alert('✅ Charged! Invoice: ' + invoice.id);
+        } else {
+          const date = document.getElementById('charge-date').value;
+          if(!date) throw new Error('Please pick a date.');
+          const scRes = await fetch('/.netlify/functions/outbound-client-charge-later',{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ customerId, paymentMethodId:pmId, productId:'prod_OUTBOUND', date })
+          });
+          const { error:scErr, subscription } = await scRes.json();
+          if(scErr) throw new Error(scErr);
+          alert('✅ Recurring subscription scheduled for ' + date);
+        }
+
+        // clear form
+        document.getElementById('outbound-form').reset();
+        cardEl.clear();
+
+      } catch(err) {
+        alert('❌ '+err.message);
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    };
+  </script>
+</body>
+</html>
