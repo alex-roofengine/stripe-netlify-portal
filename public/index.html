@@ -1,39 +1,99 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Home</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif}
-    .sidebar{background:#000;color:#fff;width:280px;position:fixed;height:100%;padding:2em;box-sizing:border-box}
-    .content{margin-left:280px;padding:2em}
-    h1{font-weight:600}
-    .btn{display:inline-block;border:none;border-radius:6px;font-weight:600;cursor:pointer;padding:1em 2em}
-    .btn-green{background:#28a745;color:#fff}
-    .btn-yellow{background:#ffc107;color:#000;margin-top:60px}
-    @media(max-width:768px){.sidebar{position:relative;width:100%;height:auto;padding:1em}.content{margin-left:0;padding:1em}.btn{width:100%;margin-bottom:.5em}}
+    body,html {
+      margin:0;
+      padding:0;
+      height:100%;
+      font-family:'Inter',sans-serif;
+    }
+    .sidebar {
+      background:#000;
+      color:#fff;
+      width:280px;
+      position:fixed;
+      height:100%;
+      padding:2em;
+      box-sizing:border-box;
+    }
+    .content {
+      margin-left:280px;
+      padding:2em;
+    }
+    h1 { font-weight:600 }
+    .btn {
+      display:inline-block;
+      border:none;
+      border-radius:6px;
+      font-weight:600;
+      cursor:pointer;
+      padding:1em 2em;
+      width:280px;
+      text-align:center;
+      margin-top:20px;
+    }
+    .btn-orange { background:#ff9800; color:#fff; }
+    .btn-green { background:#28a745; color:#fff; }
+    .btn-yellow { background:#ffc107; color:#000; margin-top:40px; }
+    .divider {
+      border-top:2px solid #e0e0e0;
+      margin:40px 0;
+    }
+    @media(max-width:768px){
+      .sidebar { position:relative; width:100%; height:auto; padding:1em; }
+      .content { margin-left:0; padding:1em; }
+      .btn { width:100%; margin-bottom:.75em; }
+    }
   </style>
 </head>
 <body>
   <div class="sidebar">
-  <img src="assets/logo.svg" width="150" alt="RoofEngine" />
-  <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
-  <p id="timestamp"></p>
-  <p id="context"></p>
-  <a href="index.html" class="home">← Home</a>
-</div>
+    <img src="assets/logo.svg" width="150" alt="RoofEngine" />
+    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
+    <p id="timestamp"></p>
+    <p id="context"></p>
+    <a href="index.html" class="home">← Home</a>
+  </div>
+
   <div class="content">
     <h1>What do you want to do?</h1>
+
+    <!-- 🔶 Outbound Button -->
+    <button class="btn btn-orange" onclick="location.href='outbound.html'">Charge Outbound Client</button>
+    <p>Click on the orange button to charge the outbound client.</p>
+
+    <div class="divider"></div>
+
+    <!-- Existing buttons -->
     <button class="btn btn-green" onclick="location.href='create.html'">Create A New Client</button>
     <p>This will add the client’s details to our Stripe account – they will not be charged</p>
+
     <button class="btn btn-yellow" onclick="location.href='update-select.html'">Update Client Details</button>
     <p>You can edit payment details or view billing history</p>
   </div>
+
   <script>
-    function updateTime(){const opts={timeZone:'America/New_York',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true};document.getElementById('timestamp').textContent='Today is '+new Intl.DateTimeFormat('en-US',opts).format(new Date())+' EST'}
-    updateTime();setInterval(updateTime,60000);
+    function updateTime() {
+      const opts = {
+        timeZone:'America/New_York',
+        month:'long',
+        day:'numeric',
+        hour:'numeric',
+        minute:'2-digit',
+        hour12:true
+      };
+      document.getElementById('timestamp').textContent =
+        'Today is ' + new Intl.DateTimeFormat('en-US', opts).format(new Date()) + ' EST';
+    }
+    updateTime();
+    setInterval(updateTime,60000);
   </script>
 </body>
 </html>
