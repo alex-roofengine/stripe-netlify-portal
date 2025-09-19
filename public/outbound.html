@@ -19,6 +19,7 @@
     input { padding:10px; width:100%; margin-top:8px; box-sizing:border-box; border-radius:4px; border:1px solid #ccc; }
     #card-element { margin-top:12px; padding:12px; border:1px solid #ccc; border-radius:4px; }
     #submit { margin-top:20px; background:#007bff; color:#fff; width:100%; padding:1em; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
+    #later-options { display:none; margin-top:20px; }
     @media(max-width:768px){ .sidebar{position:relative;width:100%;height:auto;padding:1em}.content{margin-left:0;padding:1em}.btn{width:100%;margin-bottom:.75em} }
   </style>
 </head>
@@ -45,6 +46,12 @@
       <button class="btn btn-gray" id="charge-later">Charge Later</button>
     </div>
 
+    <!-- Charge Later Options -->
+    <div id="later-options">
+      <label for="due-date">Select Due Date</label>
+      <input type="date" id="due-date" />
+    </div>
+
     <!-- Stripe Card Element -->
     <label for="card-element">Card Details</label>
     <div id="card-element"></div>
@@ -59,6 +66,7 @@
     cardElement.mount("#card-element");
 
     let clientId = null;
+    let mode = "now"; // default
 
     async function loadClient() {
       const res = await fetch("/.netlify/functions/get-latest-outbound-customer");
@@ -71,6 +79,17 @@
       document.getElementById("client-info").innerText = `Charging client: ${data.name || data.email}`;
     }
     loadClient();
+
+    // Button toggles
+    document.getElementById("charge-now").addEventListener("click", () => {
+      mode = "now";
+      document.getElementById("later-options").style.display = "none";
+    });
+
+    document.getElementById("charge-later").addEventListener("click", () => {
+      mode = "later";
+      document.getElementById("later-options").style.display = "block";
+    });
 
     // Handle Submit
     document.getElementById("submit").addEventListener("click", async (e) => {
@@ -91,18 +110,26 @@
         return;
       }
 
-      const isChargeLater = document.activeElement.id === "charge-later";
-      const endpoint = isChargeLater
-        ? "/.netlify/functions/outbound-client-charge-later"
-        : "/.netlify/functions/outbound-client-charge-now";
+      let payload = {
+        customerId: clientId,
+        paymentMethodId: paymentMethod.id,
+        amount: amount,
+      };
+
+      let endpoint = "/.netlify/functions/outbound-client-charge-now";
+      if (mode === "later") {
+        const dueDate = document.getElementById("due-date").value;
+        if (!dueDate) {
+          alert("Please select a due date for scheduled charge.");
+          return;
+        }
+        payload.dueDate = dueDate;
+        endpoint = "/.netlify/functions/outbound-client-charge-later";
+      }
 
       const response = await fetch(endpoint, {
         method: "POST",
-        body: JSON.stringify({
-          customerId: clientId,
-          paymentMethodId: paymentMethod.id,
-          amount: amount
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
