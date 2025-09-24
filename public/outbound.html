@@ -20,7 +20,24 @@
     #card-element { margin-top:12px; padding:12px; border:1px solid #ccc; border-radius:4px; }
     #submit { margin-top:20px; background:#007bff; color:#fff; width:100%; padding:1em; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
     #later-options { display:none; margin-top:20px; }
-    @media(max-width:768px){ .sidebar{position:relative;width:100%;height:auto;padding:1em}.content{margin-left:0;padding:1em}.btn{width:100%;margin-bottom:.75em} }
+
+    /* Loading overlay */
+    #loadingOverlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .loader {
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 6px solid #fff; border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media(max-width:768px){
+      .sidebar{position:relative;width:100%;height:auto;padding:1em}
+      .content{margin-left:0;padding:1em}
+      .btn{width:100%;margin-bottom:.75em}
+    }
   </style>
 </head>
 <body>
@@ -58,19 +75,31 @@
     <button id="submit">Submit</button>
   </div>
 
+  <!-- Loading overlay -->
+  <div id="loadingOverlay"><div class="loader" aria-label="Processing…"></div></div>
+
   <script src="https://js.stripe.com/v3/"></script>
   <script>
+    // Tiny uuid generator for idempotency
+    function uuid() {
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
+    function showLoading(on) {
+      document.getElementById("loadingOverlay").style.display = on ? "flex" : "none";
+      const btn = document.getElementById("submit");
+      btn.disabled = on;
+      btn.style.opacity = on ? 0.7 : 1;
+    }
+
     (async function () {
-      // 1) Fetch publishable key from your Netlify Function
+      // 1) Fetch publishable key from Netlify Function (you must have netlify/functions/public-keys.js)
       const res = await fetch("/.netlify/functions/public-keys", { cache: "no-store" });
       const { publishableKey } = await res.json();
+      if (!publishableKey) { alert("⚠️ Missing Stripe publishable key."); return; }
 
-      if (!publishableKey) {
-        alert("⚠️ Missing Stripe publishable key. Check Netlify env vars.");
-        return;
-      }
-
-      // 2) Initialize Stripe
+      // 2) Init Stripe
       const stripe = Stripe(publishableKey);
       const elements = stripe.elements();
       const cardElement = elements.create("card");
@@ -79,7 +108,6 @@
       let clientId = null;
       let mode = "now";
 
-      // Load client from your Netlify Function
       async function loadClient() {
         const res = await fetch("/.netlify/functions/get-latest-outbound-customer");
         if (!res.ok) {
@@ -88,11 +116,11 @@
         }
         const data = await res.json();
         clientId = data.id;
-        document.getElementById("client-info").innerText = `Charging client: ${data.name || data.email || data.id}`;
+        document.getElementById("client-info").innerText =
+          `Charging client: ${data.name || data.email || data.id}`;
       }
       loadClient();
 
-      // Toggle buttons
       document.getElementById("charge-now").addEventListener("click", () => {
         mode = "now";
         document.getElementById("later-options").style.display = "none";
@@ -102,7 +130,6 @@
         document.getElementById("later-options").style.display = "block";
       });
 
-      // Handle submit
       document.getElementById("submit").addEventListener("click", async (e) => {
         e.preventDefault();
 
@@ -112,46 +139,43 @@
           return;
         }
 
-        // Create payment method
-        const { paymentMethod, error } = await stripe.createPaymentMethod({
-          type: "card",
-          card: cardElement,
-        });
-        if (error) {
-          alert(error.message);
-          return;
-        }
+        showLoading(true);
+        try {
+          // Create payment method in browser
+          const { paymentMethod, error } = await stripe.createPaymentMethod({
+            type: "card",
+            card: cardElement,
+          });
+          if (error) { alert(error.message); return; }
 
-        // Prepare payload
-        const payload = {
-          customerId: clientId,
-          paymentMethodId: paymentMethod.id,
-          amount: amount,
-        };
+          const payload = {
+            customerId: clientId,
+            paymentMethodId: paymentMethod.id,
+            amount: amount,
+            requestId: uuid() // used by server for idempotency
+          };
 
-        let endpoint = "/.netlify/functions/outbound-client-charge-now";
-        if (mode === "later") {
-          const dueDate = document.getElementById("due-date").value;
-          if (!dueDate) {
-            alert("Please select a due date for scheduled charge.");
-            return;
+          let endpoint = "/.netlify/functions/outbound-client-charge-now";
+          if (mode === "later") {
+            const dueDate = document.getElementById("due-date").value;
+            if (!dueDate) { alert("Please select a due date for scheduled charge."); return; }
+            payload.dueDate = dueDate;
+            endpoint = "/.netlify/functions/outbound-client-charge-later";
           }
-          payload.dueDate = dueDate;
-          endpoint = "/.netlify/functions/outbound-client-charge-later";
-        }
 
-        // Call your server function
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
 
-        const result = await response.json();
-        if (result.error) {
-          alert("Error: " + result.error);
-        } else {
-          alert("✅ Success: " + JSON.stringify(result));
+          const result = await response.json();
+          if (result.error) alert("Error: " + result.error);
+          else alert("✅ Success: " + JSON.stringify(result));
+        } catch (err) {
+          alert("Unexpected error: " + (err?.message || err));
+        } finally {
+          showLoading(false);
         }
       });
     })();
