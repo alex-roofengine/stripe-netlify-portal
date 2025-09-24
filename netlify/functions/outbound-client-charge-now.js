@@ -1,7 +1,5 @@
-// netlify/functions/outbound-client-charge-now.js
 const Stripe = require("stripe");
-// Add the debug log here:
-console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY);
+console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY); // Debug log
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
@@ -15,10 +13,10 @@ exports.handler = async (event) => {
       invoice_settings: { default_payment_method: paymentMethodId }
     });
 
-    // Create one-time invoice item with custom amount
+    // Create one-time invoice item
     await stripe.invoiceItems.create({
       customer: customerId,
-      amount: parseInt(amount) * 100, // cents
+      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
       currency: "usd",
       description: "RoofEngine Outbound Retainer"
     });
