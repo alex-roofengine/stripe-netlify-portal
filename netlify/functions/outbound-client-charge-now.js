@@ -1,7 +1,9 @@
 const Stripe = require("stripe");
 console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY); // Debug log
 
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: '2020-08-27',
+});
 
 exports.handler = async (event) => {
   try {
