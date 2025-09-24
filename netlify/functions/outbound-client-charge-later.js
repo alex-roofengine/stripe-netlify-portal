@@ -1,5 +1,8 @@
 // netlify/functions/outbound-client-charge-later.js
 const Stripe = require("stripe");
+// Add the debug log here:
+console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY);
+
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
 exports.handler = async (event) => {
