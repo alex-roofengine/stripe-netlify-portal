@@ -1,7 +1,5 @@
-// netlify/functions/outbound-client-charge-later.js
 const Stripe = require("stripe");
-// Add the debug log here:
-console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY);
+console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY); // Debug log
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
@@ -18,19 +16,19 @@ exports.handler = async (event) => {
     // Create invoice item
     await stripe.invoiceItems.create({
       customer: customerId,
-      amount: parseInt(amount) * 100,
+      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
       currency: "usd",
       description: "RoofEngine Outbound Retainer (Scheduled)"
     });
 
-    // Convert date string to timestamp (due date)
+    // Convert dueDate to UNIX timestamp (seconds)
     const dueTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
 
     // Create invoice with due date
     const invoice = await stripe.invoices.create({
       customer: customerId,
       collection_method: "charge_automatically",
-      auto_advance: false, // don’t finalize until you’re ready
+      auto_advance: false, // Don't finalize until ready
       due_date: dueTimestamp,
     });
 
