@@ -1,29 +1,22 @@
 const Stripe = require("stripe");
-console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY); // Debug log
-
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2020-08-27',
-});
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
 exports.handler = async (event) => {
   try {
-    const { customerId, paymentMethodId, amount } = JSON.parse(event.body);
+    const { customerId, paymentMethodId, amount } = JSON.parse(event.body || "{}");
 
-    // Attach payment method
     await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     await stripe.customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId }
+      invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    // Create one-time invoice item
     await stripe.invoiceItems.create({
       customer: customerId,
-      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
+      amount: Math.round(parseFloat(amount) * 100),
       currency: "usd",
-      description: "RoofEngine Outbound Retainer"
+      description: "RoofEngine Outbound Retainer",
     });
 
-    // Create and pay invoice
     const invoice = await stripe.invoices.create({
       customer: customerId,
       collection_method: "charge_automatically",
