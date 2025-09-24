@@ -13,10 +13,14 @@ jobs:
       - name: Install Netlify CLI
         run: npm install -g netlify-cli
 
-      - name: Set STRIPE_SECRET_KEY in Netlify Environment
+      - name: Link Netlify Site
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        run: netlify link --id $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN
+
+      - name: Set STRIPE_SECRET_KEY in Netlify Environment
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-        run: |
-          netlify env:set STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY" --site $NETLIFY_SITE_ID --auth $NETLIFY_AUTH_TOKEN
+        run: netlify env:set STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY" --auth $NETLIFY_AUTH_TOKEN
