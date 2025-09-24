@@ -1,37 +1,31 @@
 const Stripe = require("stripe");
-console.log("Stripe Key Value:", process.env.STRIPE_SECRET_KEY); // Debug log
-
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2020-08-27',
-});
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
 exports.handler = async (event) => {
   try {
-    const { customerId, paymentMethodId, amount, dueDate } = JSON.parse(event.body);
+    const { customerId, paymentMethodId, amount, dueDate } = JSON.parse(event.body || "{}");
 
-    // Attach payment method
     await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     await stripe.customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId }
+      invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    // Create invoice item
     await stripe.invoiceItems.create({
       customer: customerId,
-      amount: Math.round(parseFloat(amount) * 100), // Convert to cents
+      amount: Math.round(parseFloat(amount) * 100),
       currency: "usd",
-      description: "RoofEngine Outbound Retainer (Scheduled)"
+      description: "RoofEngine Outbound Retainer (Scheduled)",
     });
 
-    // Convert dueDate to UNIX timestamp (seconds)
+    // NOTE: Stripe only honors 'due_date' when collection_method === 'send_invoice'.
+    // If you actually want an automatic charge at a future date, you'll need a different flow.
     const dueTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
 
-    // Create invoice with due date
     const invoice = await stripe.invoices.create({
       customer: customerId,
-      collection_method: "charge_automatically",
-      auto_advance: false, // Don't finalize until ready
+      collection_method: "send_invoice",
       due_date: dueTimestamp,
+      auto_advance: true, // finalize immediately so it’s viewable/payable
     });
 
     return { statusCode: 200, body: JSON.stringify(invoice) };
