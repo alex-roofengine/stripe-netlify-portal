@@ -60,85 +60,101 @@
 
   <script src="https://js.stripe.com/v3/"></script>
   <script>
-    const stripe = Stripe("<?= process.env.STRIPE_PUBLISHABLE_KEY ?>"); // Netlify injects key
-    const elements = stripe.elements();
-    const cardElement = elements.create("card");
-    cardElement.mount("#card-element");
+    (async function () {
+      // 1) Fetch publishable key from your Netlify Function
+      const res = await fetch("/.netlify/functions/public-keys", { cache: "no-store" });
+      const { publishableKey } = await res.json();
 
-    let clientId = null;
-    let mode = "now"; // default
-
-    async function loadClient() {
-      const res = await fetch("/.netlify/functions/get-latest-outbound-customer");
-      if (!res.ok) {
-        document.getElementById("client-info").innerText = "⚠️ Failed to load client.";
-        return;
-      }
-      const data = await res.json();
-      clientId = data.id;
-      document.getElementById("client-info").innerText = `Charging client: ${data.name || data.email}`;
-    }
-    loadClient();
-
-    // Button toggles
-    document.getElementById("charge-now").addEventListener("click", () => {
-      mode = "now";
-      document.getElementById("later-options").style.display = "none";
-    });
-
-    document.getElementById("charge-later").addEventListener("click", () => {
-      mode = "later";
-      document.getElementById("later-options").style.display = "block";
-    });
-
-    // Handle Submit
-    document.getElementById("submit").addEventListener("click", async (e) => {
-      e.preventDefault();
-      const amount = document.getElementById("amount").value;
-      if (!amount || amount <= 0) {
-        alert("Please enter a valid retainer amount.");
+      if (!publishableKey) {
+        alert("⚠️ Missing Stripe publishable key. Check Netlify env vars.");
         return;
       }
 
-      const { paymentMethod, error } = await stripe.createPaymentMethod({
-        type: "card",
-        card: cardElement,
-      });
+      // 2) Initialize Stripe
+      const stripe = Stripe(publishableKey);
+      const elements = stripe.elements();
+      const cardElement = elements.create("card");
+      cardElement.mount("#card-element");
 
-      if (error) {
-        alert(error.message);
-        return;
-      }
+      let clientId = null;
+      let mode = "now";
 
-      let payload = {
-        customerId: clientId,
-        paymentMethodId: paymentMethod.id,
-        amount: amount,
-      };
-
-      let endpoint = "/.netlify/functions/outbound-client-charge-now";
-      if (mode === "later") {
-        const dueDate = document.getElementById("due-date").value;
-        if (!dueDate) {
-          alert("Please select a due date for scheduled charge.");
+      // Load client from your Netlify Function
+      async function loadClient() {
+        const res = await fetch("/.netlify/functions/get-latest-outbound-customer");
+        if (!res.ok) {
+          document.getElementById("client-info").innerText = "⚠️ Failed to load client.";
           return;
         }
-        payload.dueDate = dueDate;
-        endpoint = "/.netlify/functions/outbound-client-charge-later";
+        const data = await res.json();
+        clientId = data.id;
+        document.getElementById("client-info").innerText = `Charging client: ${data.name || data.email || data.id}`;
       }
+      loadClient();
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: JSON.stringify(payload),
+      // Toggle buttons
+      document.getElementById("charge-now").addEventListener("click", () => {
+        mode = "now";
+        document.getElementById("later-options").style.display = "none";
+      });
+      document.getElementById("charge-later").addEventListener("click", () => {
+        mode = "later";
+        document.getElementById("later-options").style.display = "block";
       });
 
-      const result = await response.json();
-      if (result.error) {
-        alert("Error: " + result.error);
-      } else {
-        alert("✅ Success: " + JSON.stringify(result));
-      }
-    });
+      // Handle submit
+      document.getElementById("submit").addEventListener("click", async (e) => {
+        e.preventDefault();
+
+        const amount = document.getElementById("amount").value;
+        if (!amount || amount <= 0) {
+          alert("Please enter a valid retainer amount.");
+          return;
+        }
+
+        // Create payment method
+        const { paymentMethod, error } = await stripe.createPaymentMethod({
+          type: "card",
+          card: cardElement,
+        });
+        if (error) {
+          alert(error.message);
+          return;
+        }
+
+        // Prepare payload
+        const payload = {
+          customerId: clientId,
+          paymentMethodId: paymentMethod.id,
+          amount: amount,
+        };
+
+        let endpoint = "/.netlify/functions/outbound-client-charge-now";
+        if (mode === "later") {
+          const dueDate = document.getElementById("due-date").value;
+          if (!dueDate) {
+            alert("Please select a due date for scheduled charge.");
+            return;
+          }
+          payload.dueDate = dueDate;
+          endpoint = "/.netlify/functions/outbound-client-charge-later";
+        }
+
+        // Call your server function
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+        if (result.error) {
+          alert("Error: " + result.error);
+        } else {
+          alert("✅ Success: " + JSON.stringify(result));
+        }
+      });
+    })();
   </script>
 </body>
 </html>
