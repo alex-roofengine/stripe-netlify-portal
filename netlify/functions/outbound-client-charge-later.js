@@ -2,55 +2,74 @@
 const Stripe = require("stripe");
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2020-08-27" });
 
+// Use your provided Stripe Product ID
+const OUTBOUND_PRODUCT_ID = "prod_Sx2X1jtOt4xPzm";
+
 exports.handler = async (event) => {
   try {
-    const { customerId, paymentMethodId, amount, dueDate } = JSON.parse(event.body || "{}");
+    const { customerId, paymentMethodId, amount, dueDate, requestId } = JSON.parse(event.body || "{}");
+
+    // Basic validation
     if (!customerId || !paymentMethodId || !amount || !dueDate) {
-      return { statusCode: 400, body: JSON.stringify({ error: "Missing fields." }) };
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing required fields." }),
+      };
     }
 
-    // 1) Attach PM and set as default for invoices (future off-session)
+    // 1️⃣ Attach the payment method to the customer and set it as default
     await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
     await stripe.customers.update(customerId, {
       invoice_settings: { default_payment_method: paymentMethodId },
     });
 
-    // 2) Create a subscription that charges ONCE at future date.
-    // We create an inline price for the exact amount you entered.
+    // 2️⃣ Convert amount and due date
     const cents = Math.round(parseFloat(amount) * 100);
     const dueTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
 
+    // 3️⃣ Create a subscription that will automatically charge at trial_end
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       collection_method: "charge_automatically",
-      trial_end: dueTimestamp,              // charge at this time
+      trial_end: dueTimestamp, // charge when this date hits
       expand: ["latest_invoice.payment_intent"],
       items: [
         {
           price_data: {
             currency: "usd",
-            product_data: { name: "RoofEngine Outbound Retainer (One-time scheduled)" },
-            recurring: { interval: "month" }, // interval must exist, but we will cancel at first charge
+            product: OUTBOUND_PRODUCT_ID, // Fixed Product ID
+            recurring: { interval: "month" }, // Required by Stripe, but we cancel after 1st charge
             unit_amount: cents,
           },
         },
       ],
-      // This helps Stripe prep PM for off-session when trial ends
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      // Optional metadata to recognize this as a one-off scheduled charge
-      metadata: { kind: "scheduled_one_time", scheduled_for: String(dueTimestamp) },
-    });
+      payment_settings: {
+        save_default_payment_method: "on_subscription",
+      },
+      description: "RoofEngine Outbound Retainer (Scheduled)",
+      metadata: {
+        kind: "scheduled_one_time",
+        scheduled_for: String(dueTimestamp),
+        created_by: "Netlify Function: outbound-client-charge-later",
+      },
+    },
+    requestId ? { idempotencyKey: `sub-create-${requestId}` } : undefined);
 
-    // NOTE:
-    // - The customer is now "trialing". No charge happens until dueTimestamp.
-    // - We'll cancel the subscription after first successful payment via webhook.
-
+    // ✅ Return confirmation to the frontend
     return {
       statusCode: 200,
-      body: JSON.stringify({ subscriptionId: subscription.id, status: subscription.status }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        nextInvoice: new Date(dueTimestamp * 1000).toISOString(),
+      }),
     };
   } catch (err) {
     console.error("charge-later error:", err);
-    return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
 };
