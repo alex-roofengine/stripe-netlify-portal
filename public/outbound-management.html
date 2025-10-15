@@ -6,76 +6,89 @@
   <title>Outbound Management</title>
 
   <!-- Inter font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-
-  <!-- Stripe.js -->
-  <script>
-    // Netlify will inject this from your environment
-    window.STRIPE_PUBLISHABLE_KEY = window.STRIPE_PUBLISHABLE_KEY;
-  </script>
-  <script src="https://js.stripe.com/v3/"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    * { box-sizing: border-box; }
-    body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; color:#111; }
-    a { color: #0d6efd; text-decoration: none; }
-    .sidebar {
-      position: fixed; left:0; top:0; width:280px; height:100%;
-      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
+    :root{
+      --bg:#ffffff; --text:#111; --muted:#666; --border:#e7e7e7;
+      --pill-green:#e8f7ee; --pill-green-text:#167e41;
+      --pill-red:#fde8ea; --pill-red-text:#b4232d;
+      --pill-open:#eef2ff; --pill-open-text:#3449d6;
+      --default-blue:#0d6efd;
+      --card-bg:#fff; --card-shadow:0 1px 2px rgba(0,0,0,.07);
     }
-    .sidebar img { width:150px; margin-bottom:1em; }
-    .sidebar h2 { font-size:1.25em; line-height:1.3; margin:0 0 1em; }
-    .sidebar p#timestamp { margin:0 0 1em; }
-    .sidebar a.home { color:#fff; margin-top:auto; }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;font-family:'Inter',sans-serif;color:var(--text);background:var(--bg)}
+    h1,h2,h3{margin:0 0 .5rem 0}
+    a{color:inherit}
 
-    .content { margin-left:280px; padding:2em; }
-    h1 { font-size:1.5em; font-weight:700; margin:0 0 1em; }
-
-    .card {
-      background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.25em; margin-bottom:1.25em;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    /* Sidebar */
+    .sidebar{
+      position:fixed; left:0; top:0; width:280px; height:100%;
+      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column
     }
-    .section-title { font-weight:700; font-size:1.1em; margin-bottom:.75em; }
+    .sidebar img{width:150px; margin-bottom:1em}
+    .sidebar h2{font-size:1.25em; line-height:1.3; margin-bottom:1em}
+    .sidebar p#timestamp{margin-bottom:1em}
+    .sidebar a.home{color:#fff; text-decoration:none; font-weight:600; margin-top:auto}
 
-    .row { display:flex; gap:1em; align-items:center; }
-    .btn {
-      display:inline-block; padding:.8em 1.4em; border-radius:8px; border:none; font-weight:600; cursor:pointer;
+    /* Content */
+    .content{margin-left:280px; padding:2em}
+    .page-title{font-size:1.6rem; font-weight:700; margin-bottom:1rem}
+
+    /* Cards / sections */
+    .card{
+      background:var(--card-bg); border:1px solid var(--border);
+      border-radius:12px; box-shadow:var(--card-shadow);
+      padding:1.25rem; margin-bottom:1rem
     }
-    .btn-primary { background:#0d6efd; color:#fff; }
-    .select, select, input {
-      padding:.7em .8em; border:1px solid #cbd5e1; border-radius:8px; font-size:1em;
+    .section-title{font-size:1.1rem; font-weight:700; margin-bottom:.75rem}
+
+    /* Company block */
+    .company-name{font-size:1.05rem; font-weight:700; margin-bottom:.25rem}
+    .contact-line{color:var(--muted)}
+
+    /* Payment methods */
+    #pm-list{display:flex; flex-direction:column; gap:.5rem}
+    .pm-row{
+      display:flex; align-items:center; justify-content:space-between;
+      border:1px solid var(--border); border-radius:8px; padding:.75rem 1rem
     }
-    .muted { color:#6b7280; }
-
-    /* Payment methods list */
-    .pm-list { display:flex; flex-direction:column; gap:.6em; }
-    .pm-item { display:flex; align-items:center; gap:.75em; border:1px solid #e5e7eb; padding:.7em .9em; border-radius:8px; }
-    .pm-brand { font-weight:600; }
-    .pm-meta { margin-left:auto; display:flex; gap:.75em; align-items:center; }
-    .badge-default { background:#0d6efd; color:#fff; padding:.2em .5em; border-radius:6px; font-size:.8em; }
-
-    table { width:100%; border-collapse:collapse; }
-    th, td { text-align:left; padding:.6em .5em; border-bottom:1px solid #eee; font-size:.95em; }
-    th { font-weight:700; background:#f9fafb; }
-    .status-pill {
-      padding:.2em .55em; border-radius:999px; font-weight:600; font-size:.85em; display:inline-block;
+    .pm-left{font-weight:600}
+    .pm-right{color:#333}
+    .default-badge{
+      margin-left:.6rem; background:var(--default-blue); color:#fff;
+      padding:2px 8px; border-radius:999px; font-size:.75rem; font-weight:700
     }
-    .paid { background:#e8f5e9; color:#1b5e20; }
-    .failed { background:#fdecea; color:#b71c1c; }
-    .refunded, .void { background:#ede7f6; color:#4527a0; }
-    .open, .uncollectible, .draft { background:#fff8e1; color:#795548; }
 
-    .loader { display:none; margin-top:1em; }
-    .divider { height:1px; background:#e5e7eb; margin:1.25em 0; }
-    @media(max-width: 900px){
-      .content { margin-left:0; padding:1em; }
-      .sidebar { position:relative; width:100%; height:auto; }
+    /* Table */
+    .table-wrap{overflow:auto}
+    table{width:100%; border-collapse:collapse}
+    thead th{
+      text-align:left; font-size:.9rem; font-weight:700; color:#333;
+      border-bottom:1px solid var(--border); padding:.75rem
+    }
+    tbody td{
+      border-bottom:1px solid var(--border); padding:.75rem; vertical-align:top
+    }
+    .muted{color:var(--muted)}
+    .status-pill{
+      padding:2px 8px; border-radius:999px; font-size:.8rem; font-weight:700; display:inline-block
+    }
+    .paid{background:var(--pill-green); color:var(--pill-green-text)}
+    .failed{background:var(--pill-red); color:var(--pill-red-text)}
+    .open{background:var(--pill-open); color:var(--pill-open-text)}
+
+    @media(max-width:768px){
+      .sidebar{position:relative; width:100%; height:auto; padding:1em}
+      .content{margin-left:0; padding:1em}
     }
   </style>
 </head>
 <body>
+  <!-- Sidebar -->
   <div class="sidebar">
     <img src="assets/logo.svg" alt="RoofEngine" />
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
@@ -83,268 +96,172 @@
     <a href="index.html" class="home">← Home</a>
   </div>
 
+  <!-- Content -->
   <div class="content">
-    <h1 id="page-title">Outbound Management</h1>
+    <h1 class="page-title" id="page-title">Outbound Management</h1>
 
-    <!-- State A: selector (shown when no customerId) -->
-    <div id="select-state" class="card" style="display:none;">
-      <div class="section-title">Choose an Outbound Client</div>
-      <div class="row">
-        <select id="customer-select" class="select" style="min-width:320px;">
-          <option value="">Loading customers…</option>
-        </select>
-        <button id="next-btn" class="btn btn-primary">Next</button>
-      </div>
-      <div id="select-loader" class="loader">
-        <video src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4" autoplay loop muted width="36" height="36"></video>
-      </div>
-      <p class="muted" style="margin-top:.75em;">Only customers with <code>metadata.client_type = "outbound"</code> appear here.</p>
+    <!-- Company -->
+    <div class="card">
+      <h3 class="section-title">Company</h3>
+      <div class="company-name" id="company-name">—</div>
+      <div class="contact-line" id="contact-line" class="muted">—</div>
     </div>
 
-    <!-- State B: details (shown when customerId present) -->
-    <div id="details-state" style="display:none;">
-      <div class="card">
-        <div class="section-title">Company</div>
-        <div id="company-block">
-          <div id="company-name" style="font-weight:700; font-size:1.1em;"></div>
-          <div id="contact-line" class="muted" style="margin-top:.35em;"></div>
-        </div>
-      </div>
+    <!-- Payment Methods -->
+    <div class="card">
+      <h3 class="section-title">Payment Methods</h3>
+      <div id="pm-list"></div>
+    </div>
 
-      <div class="card">
-        <div class="section-title">Payment Methods</div>
-        <div id="pm-list" class="pm-list"></div>
-      </div>
-
-      <div class="card">
-        <div class="section-title">Billing History</div>
-        <div class="divider"></div>
-        <div class="table-wrap" style="overflow:auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Statement Descriptor</th>
-                <th>Description</th>
-                <th>Payment Method</th>
-                <th>Invoice</th>
-              </tr>
-            </thead>
-            <tbody id="invoice-tbody">
-              <tr><td colspan="7" class="muted">Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div id="details-loader" class="loader">
-        <video src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4" autoplay loop muted width="36" height="36"></video>
+    <!-- Billing History -->
+    <div class="card">
+      <h3 class="section-title">Billing History</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width:140px;">Date</th>
+              <th style="min-width:110px;">Amount</th>
+              <th style="min-width:110px;">Status</th>
+              <th style="min-width:180px;">Statement Descriptor</th>
+              <th style="min-width:260px;">Description</th>
+              <th style="min-width:180px;">Payment Method</th>
+              <th style="min-width:160px;">Charge ID</th>
+            </tr>
+          </thead>
+          <tbody id="invoice-tbody">
+            <tr><td colspan="7" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
   <script>
-    // Sidebar live clock (EST)
+    // Sidebar clock
     function updateTime(){
-      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
-                   hour:'numeric', minute:'2-digit', hour12:true };
+      const opts={ timeZone:'America/New_York', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true };
       document.getElementById('timestamp').textContent =
         'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
     }
     updateTime(); setInterval(updateTime,60000);
 
-    const qs = new URLSearchParams(location.search);
-    const customerId = qs.get('customerId');
+    // Helpers
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const params = new URLSearchParams(location.search);
+    const customerId = params.get('customerId');
 
-    const selectState  = document.getElementById('select-state');
-    const detailsState = document.getElementById('details-state');
+    // Bootstrap page
+    (async function bootstrapDetails(){
+      try{
+        if(!customerId){ throw new Error('Missing customerId in URL'); }
 
-    if (!customerId) {
-      selectState.style.display = 'block';
-      bootstrapSelector();
-    } else {
-      detailsState.style.display = 'block';
-      bootstrapDetails(customerId);
-    }
+        // 1) Load customer list and pick this one (uses your existing function)
+        const customers = await fetch('/.netlify/functions/list-customers').then(r=>r.json());
+        const c = customers.find(x=>x.id === customerId);
+        if(!c){ throw new Error('Customer not found'); }
 
-    // ---------- State A: selector ----------
-    async function bootstrapSelector() {
-      const selectEl = document.getElementById('customer-select');
-      const loader = document.getElementById('select-loader');
-      loader.style.display = 'block';
-      try {
-        const res = await fetch('/.netlify/functions/list-outbound-customers');
-        const list = await res.json();
+        // Page header
+        document.getElementById('page-title').textContent =
+          `Outbound Management — ${c.name || '(Unnamed)'}`;
 
-        selectEl.innerHTML = '';
-        if (!Array.isArray(list) || list.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = '';
-          opt.textContent = 'No outbound customers found';
-          selectEl.appendChild(opt);
-          return;
-        }
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = 'Select a customer…';
-        selectEl.appendChild(placeholder);
+        // Company block
+        document.getElementById('company-name').textContent = c.name || '(Unnamed)';
+        const individual = (c.metadata && c.metadata.contact_name) ? c.metadata.contact_name : null;
+        const contactLineParts = [];
+        if (individual) contactLineParts.push(individual);
+        if (c.email) contactLineParts.push(c.email);
+        document.getElementById('contact-line').textContent =
+          contactLineParts.length ? contactLineParts.join(' • ') : '(No contact on file)';
 
-        list.forEach(c=>{
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          const label = (c.name || '(No company name)') + (c.email ? ` — ${c.email}` : '');
-          opt.textContent = label;
-          selectEl.appendChild(opt);
-        });
-
-        document.getElementById('next-btn').onclick = ()=>{
-          const chosen = selectEl.value;
-          if (!chosen) return alert('Please select a customer first.');
-          location.href = `outbound-management.html?customerId=${encodeURIComponent(chosen)}`;
-        };
-      } catch (e) {
-        console.error(e);
-        selectEl.innerHTML = '<option value="">Failed to load customers</option>';
-      } finally {
-        loader.style.display = 'none';
-      }
-    }
-
-    // ---------- State B: details ----------
-    async function bootstrapDetails(customerId) {
-      const loader = document.getElementById('details-loader');
-      loader.style.display = 'block';
-
-      // Load customer basic info to show company & contact
-      try {
-        const all = await fetch('/.netlify/functions/list-outbound-customers').then(r=>r.json());
-        const c = all.find(x => x.id === customerId);
-        if (c) {
-          document.getElementById('page-title').textContent = `Outbound Management — ${c.name || '(No company name)'}`;
-          document.getElementById('company-name').textContent = c.name || '(No company name)';
-          const contactLine = [c.metadata?.contact_name || '', c.email || ''].filter(Boolean).join(' • ');
-          document.getElementById('contact-line').textContent = contactLine || '(No contact on file)';
-        } else {
-          document.getElementById('company-name').textContent = '(Customer not found in outbound list)';
-        }
-      } catch (e) {
-        console.error('Load customer header failed:', e);
-      }
-
-      // Payment methods
-      try {
+        // 2) Payment methods + default
         const { paymentMethods, defaultPaymentMethod } =
           await fetch(`/.netlify/functions/list-payment-methods?customerId=${encodeURIComponent(customerId)}`)
-          .then(r=>r.json());
+            .then(r=>r.json());
 
-        const wrap = document.getElementById('pm-list');
-        wrap.innerHTML = '';
-        if (!paymentMethods || !paymentMethods.length) {
-          wrap.innerHTML = '<div class="muted">No payment methods on file.</div>';
+        const pmWrap = document.getElementById('pm-list');
+        pmWrap.innerHTML = '';
+        if (!paymentMethods || !paymentMethods.length){
+          const empty = document.createElement('div');
+          empty.className='muted';
+          empty.textContent='No cards on file.';
+          pmWrap.appendChild(empty);
         } else {
           paymentMethods.forEach(pm=>{
-            const item = document.createElement('div');
-            item.className = 'pm-item';
+            const brand = (pm.card?.brand || '').toString();
+            const brandPretty = brand ? brand.charAt(0).toUpperCase() + brand.slice(1) : 'Card';
+            const last4 = pm.card?.last4 || '••••';
+            const exp = pm.card ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}` : '';
+            const isDefault = (pm.id === defaultPaymentMethod) || (pm.id === defaultPaymentMethod?.id);
 
-            const brand = (pm.card?.brand || '').replace(/\b\w/g, s=>s.toUpperCase());
-            const last4 = pm.card?.last4 || '????';
-            const exp   = pm.card ? `${pm.card.exp_month}/${pm.card.exp_year}` : '';
+            const row = document.createElement('div');
+            row.className = 'pm-row';
 
             const left = document.createElement('div');
-            left.innerHTML = `<span class="pm-brand">${brand}</span> •••• ${last4}`;
+            left.className = 'pm-left';
+            left.textContent = `${brandPretty} •••• ${last4}`;
 
-            const right = document.createElement('div');
-            right.className = 'pm-meta';
-            const expEl = document.createElement('span');
-            expEl.textContent = `Expires ${exp}`;
-            right.appendChild(expEl);
-
-            if (pm.id === defaultPaymentMethod) {
+            if (isDefault){
               const badge = document.createElement('span');
-              badge.className = 'badge-default';
+              badge.className = 'default-badge';
               badge.textContent = 'Default';
-              right.appendChild(badge);
+              left.appendChild(badge);
             }
 
-            item.append(left, right);
-            wrap.appendChild(item);
+            const right = document.createElement('div');
+            right.className = 'pm-right';
+            right.textContent = exp;
+
+            row.append(left, right);
+            pmWrap.appendChild(row);
           });
         }
-      } catch (e) {
-        console.error('Load payment methods failed:', e);
-        document.getElementById('pm-list').innerHTML = '<div class="muted">Failed to load payment methods.</div>';
-      }
 
-      // Billing history
-      try {
-        const invoices = await fetch(`/.netlify/functions/list-invoices-detailed?customerId=${encodeURIComponent(customerId)}&limit=30`)
+        // 3) Billing history from Charges
+        const charges = await fetch(`/.netlify/functions/list-charges?customerId=${encodeURIComponent(customerId)}`)
           .then(r=>r.json());
+
         const tbody = document.getElementById('invoice-tbody');
         tbody.innerHTML = '';
 
-        if (!Array.isArray(invoices) || invoices.length === 0) {
+        if (!charges.length){
           const tr = document.createElement('tr');
-          const td = document.createElement('td');
-          td.colSpan = 7; td.className='muted';
-          td.textContent = 'No invoices found.';
-          tr.appendChild(td); tbody.appendChild(tr);
+          tr.innerHTML = '<td colspan="7" class="muted">No charges found.</td>';
+          tbody.appendChild(tr);
         } else {
-          invoices
-            .sort((a,b)=>b.created - a.created)
-            .forEach(inv=>{
-              const tr = document.createElement('tr');
-
-              const date = new Date(inv.created*1000).toLocaleDateString();
-              const amountInCents = inv.amount_paid || inv.amount_due || 0;
-              const amount = `$${(amountInCents/100).toFixed(2)} ${inv.currency?.toUpperCase() || 'USD'}`;
-
-              const status = (inv.status || '').toLowerCase();
-              const statusClass =
-                status === 'paid' ? 'paid'
-                : (status === 'void' || status === 'uncollectible') ? (status === 'void' ? 'void' : 'open')
-                : (status === 'draft') ? 'draft'
-                : 'open';
-
-              const pm = inv.payment_method_card
-                ? `${capitalize(inv.payment_method_card.brand)} •••• ${inv.payment_method_card.last4}`
-                : '—';
-
-              tr.innerHTML = `
-                <td>${date}</td>
-                <td>${amount}</td>
-                <td><span class="status-pill ${statusClass}">${statusLabel(status)}</span></td>
-                <td>${escapeHtml(inv.statement_descriptor || '—')}</td>
-                <td>${escapeHtml(inv.description || '—')}</td>
-                <td>${pm}</td>
-                <td>${inv.hosted_invoice_url ? `<a href="${inv.hosted_invoice_url}" target="_blank">Open</a>` : '—'}</td>
-              `;
-              tbody.appendChild(tr);
+          charges.forEach(ch=>{
+            const date = new Date(ch.created*1000).toLocaleString('en-US', {
+              month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'
             });
-        }
-      } catch (e) {
-        console.error('Load invoices failed:', e);
-        const tbody = document.getElementById('invoice-tbody');
-        tbody.innerHTML = '<tr><td colspan="7" class="muted">Failed to load invoices.</td></tr>';
-      } finally {
-        loader.style.display = 'none';
-      }
-    }
+            const amount = `$${Number(ch.amount).toLocaleString()} ${ch.currency}`;
+            const pm = ch.payment_method
+              ? `${(ch.payment_method.brand||'').toUpperCase()} •••• ${ch.payment_method.last4}`
+              : '—';
 
-    function statusLabel(s) {
-      const m = s?.toLowerCase();
-      if (m === 'paid') return 'Paid';
-      if (m === 'open') return 'Open';
-      if (m === 'void') return 'Voided';
-      if (m === 'uncollectible') return 'Uncollectible';
-      if (m === 'draft') return 'Draft';
-      return m || '—';
-    }
-    function capitalize(str){ return (str||'').split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
-    function escapeHtml(str){
-      return (''+str).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[m]));
-    }
+            const pillClass = ch.status === 'succeeded' ? 'paid'
+                              : ch.status === 'failed' ? 'failed'
+                              : 'open';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${date}</td>
+              <td>${amount}</td>
+              <td><span class="status-pill ${pillClass}">${ch.status}</span></td>
+              <td>${ch.statement_descriptor || '—'}</td>
+              <td>${ch.description || '—'}</td>
+              <td>${pm}</td>
+              <td>${ch.id}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch(err){
+        console.error(err);
+        document.getElementById('company-name').textContent = 'Error loading details';
+        const tbody = document.getElementById('invoice-tbody');
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">Error: ${err.message}</td></tr>`;
+      }
+    })();
   </script>
 </body>
 </html>
