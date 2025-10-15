@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Outbound Management</title>
+
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Stripe.js -->
+  <script>
+    // Netlify will inject this from your environment
+    window.STRIPE_PUBLISHABLE_KEY = window.STRIPE_PUBLISHABLE_KEY;
+  </script>
+  <script src="https://js.stripe.com/v3/"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body, html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; color:#111; }
+    a { color: #0d6efd; text-decoration: none; }
+    .sidebar {
+      position: fixed; left:0; top:0; width:280px; height:100%;
+      background:#000; color:#fff; padding:2em; display:flex; flex-direction:column;
+    }
+    .sidebar img { width:150px; margin-bottom:1em; }
+    .sidebar h2 { font-size:1.25em; line-height:1.3; margin:0 0 1em; }
+    .sidebar p#timestamp { margin:0 0 1em; }
+    .sidebar a.home { color:#fff; margin-top:auto; }
+
+    .content { margin-left:280px; padding:2em; }
+    h1 { font-size:1.5em; font-weight:700; margin:0 0 1em; }
+
+    .card {
+      background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.25em; margin-bottom:1.25em;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .section-title { font-weight:700; font-size:1.1em; margin-bottom:.75em; }
+
+    .row { display:flex; gap:1em; align-items:center; }
+    .btn {
+      display:inline-block; padding:.8em 1.4em; border-radius:8px; border:none; font-weight:600; cursor:pointer;
+    }
+    .btn-primary { background:#0d6efd; color:#fff; }
+    .select, select, input {
+      padding:.7em .8em; border:1px solid #cbd5e1; border-radius:8px; font-size:1em;
+    }
+    .muted { color:#6b7280; }
+
+    /* Payment methods list */
+    .pm-list { display:flex; flex-direction:column; gap:.6em; }
+    .pm-item { display:flex; align-items:center; gap:.75em; border:1px solid #e5e7eb; padding:.7em .9em; border-radius:8px; }
+    .pm-brand { font-weight:600; }
+    .pm-meta { margin-left:auto; display:flex; gap:.75em; align-items:center; }
+    .badge-default { background:#0d6efd; color:#fff; padding:.2em .5em; border-radius:6px; font-size:.8em; }
+
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:.6em .5em; border-bottom:1px solid #eee; font-size:.95em; }
+    th { font-weight:700; background:#f9fafb; }
+    .status-pill {
+      padding:.2em .55em; border-radius:999px; font-weight:600; font-size:.85em; display:inline-block;
+    }
+    .paid { background:#e8f5e9; color:#1b5e20; }
+    .failed { background:#fdecea; color:#b71c1c; }
+    .refunded, .void { background:#ede7f6; color:#4527a0; }
+    .open, .uncollectible, .draft { background:#fff8e1; color:#795548; }
+
+    .loader { display:none; margin-top:1em; }
+    .divider { height:1px; background:#e5e7eb; margin:1.25em 0; }
+    @media(max-width: 900px){
+      .content { margin-left:0; padding:1em; }
+      .sidebar { position:relative; width:100%; height:auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <img src="assets/logo.svg" alt="RoofEngine" />
+    <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
+    <p id="timestamp"></p>
+    <a href="index.html" class="home">← Home</a>
+  </div>
+
+  <div class="content">
+    <h1 id="page-title">Outbound Management</h1>
+
+    <!-- State A: selector (shown when no customerId) -->
+    <div id="select-state" class="card" style="display:none;">
+      <div class="section-title">Choose an Outbound Client</div>
+      <div class="row">
+        <select id="customer-select" class="select" style="min-width:320px;">
+          <option value="">Loading customers…</option>
+        </select>
+        <button id="next-btn" class="btn btn-primary">Next</button>
+      </div>
+      <div id="select-loader" class="loader">
+        <video src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4" autoplay loop muted width="36" height="36"></video>
+      </div>
+      <p class="muted" style="margin-top:.75em;">Only customers with <code>metadata.client_type = "outbound"</code> appear here.</p>
+    </div>
+
+    <!-- State B: details (shown when customerId present) -->
+    <div id="details-state" style="display:none;">
+      <div class="card">
+        <div class="section-title">Company</div>
+        <div id="company-block">
+          <div id="company-name" style="font-weight:700; font-size:1.1em;"></div>
+          <div id="contact-line" class="muted" style="margin-top:.35em;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Payment Methods</div>
+        <div id="pm-list" class="pm-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Billing History</div>
+        <div class="divider"></div>
+        <div class="table-wrap" style="overflow:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Statement Descriptor</th>
+                <th>Description</th>
+                <th>Payment Method</th>
+                <th>Invoice</th>
+              </tr>
+            </thead>
+            <tbody id="invoice-tbody">
+              <tr><td colspan="7" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="details-loader" class="loader">
+        <video src="assets/vecteezy_loading-circle-icon-loading-gif-loading-screen-gif-loading_8202381.mp4" autoplay loop muted width="36" height="36"></video>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sidebar live clock (EST)
+    function updateTime(){
+      const opts={ timeZone:'America/New_York', month:'long', day:'numeric',
+                   hour:'numeric', minute:'2-digit', hour12:true };
+      document.getElementById('timestamp').textContent =
+        'Today is ' + new Intl.DateTimeFormat('en-US',opts).format(new Date()) + ' EST';
+    }
+    updateTime(); setInterval(updateTime,60000);
+
+    const qs = new URLSearchParams(location.search);
+    const customerId = qs.get('customerId');
+
+    const selectState  = document.getElementById('select-state');
+    const detailsState = document.getElementById('details-state');
+
+    if (!customerId) {
+      selectState.style.display = 'block';
+      bootstrapSelector();
+    } else {
+      detailsState.style.display = 'block';
+      bootstrapDetails(customerId);
+    }
+
+    // ---------- State A: selector ----------
+    async function bootstrapSelector() {
+      const selectEl = document.getElementById('customer-select');
+      const loader = document.getElementById('select-loader');
+      loader.style.display = 'block';
+      try {
+        const res = await fetch('/.netlify/functions/list-outbound-customers');
+        const list = await res.json();
+
+        selectEl.innerHTML = '';
+        if (!Array.isArray(list) || list.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'No outbound customers found';
+          selectEl.appendChild(opt);
+          return;
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select a customer…';
+        selectEl.appendChild(placeholder);
+
+        list.forEach(c=>{
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          const label = (c.name || '(No company name)') + (c.email ? ` — ${c.email}` : '');
+          opt.textContent = label;
+          selectEl.appendChild(opt);
+        });
+
+        document.getElementById('next-btn').onclick = ()=>{
+          const chosen = selectEl.value;
+          if (!chosen) return alert('Please select a customer first.');
+          location.href = `outbound-management.html?customerId=${encodeURIComponent(chosen)}`;
+        };
+      } catch (e) {
+        console.error(e);
+        selectEl.innerHTML = '<option value="">Failed to load customers</option>';
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    // ---------- State B: details ----------
+    async function bootstrapDetails(customerId) {
+      const loader = document.getElementById('details-loader');
+      loader.style.display = 'block';
+
+      // Load customer basic info to show company & contact
+      try {
+        const all = await fetch('/.netlify/functions/list-outbound-customers').then(r=>r.json());
+        const c = all.find(x => x.id === customerId);
+        if (c) {
+          document.getElementById('page-title').textContent = `Outbound Management — ${c.name || '(No company name)'}`;
+          document.getElementById('company-name').textContent = c.name || '(No company name)';
+          const contactLine = [c.metadata?.contact_name || '', c.email || ''].filter(Boolean).join(' • ');
+          document.getElementById('contact-line').textContent = contactLine || '(No contact on file)';
+        } else {
+          document.getElementById('company-name').textContent = '(Customer not found in outbound list)';
+        }
+      } catch (e) {
+        console.error('Load customer header failed:', e);
+      }
+
+      // Payment methods
+      try {
+        const { paymentMethods, defaultPaymentMethod } =
+          await fetch(`/.netlify/functions/list-payment-methods?customerId=${encodeURIComponent(customerId)}`)
+          .then(r=>r.json());
+
+        const wrap = document.getElementById('pm-list');
+        wrap.innerHTML = '';
+        if (!paymentMethods || !paymentMethods.length) {
+          wrap.innerHTML = '<div class="muted">No payment methods on file.</div>';
+        } else {
+          paymentMethods.forEach(pm=>{
+            const item = document.createElement('div');
+            item.className = 'pm-item';
+
+            const brand = (pm.card?.brand || '').replace(/\b\w/g, s=>s.toUpperCase());
+            const last4 = pm.card?.last4 || '????';
+            const exp   = pm.card ? `${pm.card.exp_month}/${pm.card.exp_year}` : '';
+
+            const left = document.createElement('div');
+            left.innerHTML = `<span class="pm-brand">${brand}</span> •••• ${last4}`;
+
+            const right = document.createElement('div');
+            right.className = 'pm-meta';
+            const expEl = document.createElement('span');
+            expEl.textContent = `Expires ${exp}`;
+            right.appendChild(expEl);
+
+            if (pm.id === defaultPaymentMethod) {
+              const badge = document.createElement('span');
+              badge.className = 'badge-default';
+              badge.textContent = 'Default';
+              right.appendChild(badge);
+            }
+
+            item.append(left, right);
+            wrap.appendChild(item);
+          });
+        }
+      } catch (e) {
+        console.error('Load payment methods failed:', e);
+        document.getElementById('pm-list').innerHTML = '<div class="muted">Failed to load payment methods.</div>';
+      }
+
+      // Billing history
+      try {
+        const invoices = await fetch(`/.netlify/functions/list-invoices-detailed?customerId=${encodeURIComponent(customerId)}&limit=30`)
+          .then(r=>r.json());
+        const tbody = document.getElementById('invoice-tbody');
+        tbody.innerHTML = '';
+
+        if (!Array.isArray(invoices) || invoices.length === 0) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 7; td.className='muted';
+          td.textContent = 'No invoices found.';
+          tr.appendChild(td); tbody.appendChild(tr);
+        } else {
+          invoices
+            .sort((a,b)=>b.created - a.created)
+            .forEach(inv=>{
+              const tr = document.createElement('tr');
+
+              const date = new Date(inv.created*1000).toLocaleDateString();
+              const amountInCents = inv.amount_paid || inv.amount_due || 0;
+              const amount = `$${(amountInCents/100).toFixed(2)} ${inv.currency?.toUpperCase() || 'USD'}`;
+
+              const status = (inv.status || '').toLowerCase();
+              const statusClass =
+                status === 'paid' ? 'paid'
+                : (status === 'void' || status === 'uncollectible') ? (status === 'void' ? 'void' : 'open')
+                : (status === 'draft') ? 'draft'
+                : 'open';
+
+              const pm = inv.payment_method_card
+                ? `${capitalize(inv.payment_method_card.brand)} •••• ${inv.payment_method_card.last4}`
+                : '—';
+
+              tr.innerHTML = `
+                <td>${date}</td>
+                <td>${amount}</td>
+                <td><span class="status-pill ${statusClass}">${statusLabel(status)}</span></td>
+                <td>${escapeHtml(inv.statement_descriptor || '—')}</td>
+                <td>${escapeHtml(inv.description || '—')}</td>
+                <td>${pm}</td>
+                <td>${inv.hosted_invoice_url ? `<a href="${inv.hosted_invoice_url}" target="_blank">Open</a>` : '—'}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+        }
+      } catch (e) {
+        console.error('Load invoices failed:', e);
+        const tbody = document.getElementById('invoice-tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="muted">Failed to load invoices.</td></tr>';
+      } finally {
+        loader.style.display = 'none';
+      }
+    }
+
+    function statusLabel(s) {
+      const m = s?.toLowerCase();
+      if (m === 'paid') return 'Paid';
+      if (m === 'open') return 'Open';
+      if (m === 'void') return 'Voided';
+      if (m === 'uncollectible') return 'Uncollectible';
+      if (m === 'draft') return 'Draft';
+      return m || '—';
+    }
+    function capitalize(str){ return (str||'').split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '); }
+    function escapeHtml(str){
+      return (''+str).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[m]));
+    }
+  </script>
+</body>
+</html>
