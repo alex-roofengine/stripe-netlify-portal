@@ -35,6 +35,10 @@
     .row{display:flex;justify-content:space-between;align-items:center}
     .muted{color:#666}
 
+    /* Selector */
+    .selector{display:flex;gap:.75em;align-items:center;margin-bottom:.25em}
+    .selector select{padding:.5em .75em;border:1px solid #ccc;border-radius:6px;min-width:280px}
+
     /* PM list */
     .pm{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e5e5;border-radius:8px;padding:.75em 1em;margin:.5em 0}
     .default-badge{background:#007bff;color:#fff;border-radius:4px;padding:2px 6px;font-size:.8em;margin-left:.5em}
@@ -50,9 +54,6 @@
     .status-failed{background:#fde8ea;color:#b42318}
     .nowrap{white-space:nowrap}
 
-    .selector{display:flex;gap:.75em;align-items:center;margin-bottom:1em}
-    .selector select{padding:.5em .75em;border:1px solid #ccc;border-radius:6px}
-
     @media(max-width:768px){
       .sidebar{position:relative;width:100%;height:auto}
       .content{margin-left:0}
@@ -67,7 +68,8 @@
     <h2>Welcome to the<br/>RoofEngine Billing Portal</h2>
     <p id="timestamp" class="small"></p>
 
-    <a class="back" href="outbound-management.html">⟵ Back to selector</a>
+    <!-- Back to selector (stays on this page, resets query) -->
+    <a class="back" href="outbound-management.html">⟵ Back to client selector</a>
     <a class="back" style="margin-top:.75em" href="index.html">⟵ Home</a>
   </div>
 
@@ -81,9 +83,9 @@
         <select id="customerSel">
           <option value="" disabled selected>Loading customers…</option>
         </select>
-        <span class="muted" id="selectorHelp">
-          If you don't see a client in this list, please contact tech support.
-        </span>
+      </div>
+      <div class="muted" id="selectorHelp">
+        If you don't see a client in this list, please contact tech support.
       </div>
     </div>
 
@@ -93,7 +95,7 @@
       <div class="row">
         <div>
           <div id="companyName" style="font-weight:600">—</div>
-          <div class="muted" id="personLine">—</div>
+          <div class="muted" id="contactName">—</div>
           <div class="muted" id="companyEmail">—</div>
         </div>
       </div>
@@ -121,7 +123,7 @@
           </tr>
         </thead>
         <tbody id="paymentsBody">
-          <tr><td colspan="7" class="muted">Loading…</td></tr>
+          <tr><td colspan="7" class="muted">No client selected.</td></tr>
         </tbody>
       </table>
     </div>
@@ -154,39 +156,54 @@
 
     function capWord(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
 
-    // Load all customers (then filter to outbound in the UI)
-    async function loadCustomers(){
-      const list = await fetch('/.netlify/functions/list-customers').then(r=>r.json());
-      const sel = document.getElementById('customerSel');
-      sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
-
-      const outboundOnly = list.filter(c => (c.metadata && c.metadata.client_type === 'outbound'));
-      outboundOnly.forEach(c=>{
-        const opt = document.createElement('option');
-        opt.value = c.id;
-        opt.textContent = c.name || c.email || c.id;
-        sel.appendChild(opt);
+    // Sort helper: by name (case-insensitive), fallback email, then id
+    function sortCustomersAlpha(arr){
+      return [...arr].sort((a,b)=>{
+        const ax=(a.name||a.email||a.id||'').toLowerCase();
+        const bx=(b.name||b.email||b.id||'').toLowerCase();
+        return ax.localeCompare(bx);
       });
+    }
 
-      // If we were deep-linked with ?customerId=...
-      const urlId = new URLSearchParams(location.search).get('customerId');
-      if (urlId) {
-        const exists = outboundOnly.find(x=>x.id===urlId);
-        if (exists) {
-          sel.value = urlId;
-          onCustomerChange(urlId, exists);
+    // Load customers (only outbound) and alphabetize
+    async function loadCustomers(){
+      const sel = document.getElementById('customerSel');
+      try{
+        const list = await fetch('/.netlify/functions/list-customers').then(r=>r.json());
+        const outboundOnly = list.filter(c => (c.metadata && c.metadata.client_type === 'outbound'));
+        const sorted = sortCustomersAlpha(outboundOnly);
+
+        sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
+        sorted.forEach(c=>{
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name || c.email || c.id;
+          sel.appendChild(opt);
+        });
+
+        // Deep-link support
+        const urlId = new URLSearchParams(location.search).get('customerId');
+        if (urlId) {
+          const found = sorted.find(x=>x.id===urlId);
+          if (found) {
+            sel.value = urlId;
+            onCustomerChange(urlId, found);
+          }
         }
-      }
 
-      sel.onchange = async () => {
-        const id = sel.value;
-        const found = outboundOnly.find(x=>x.id===id);
-        onCustomerChange(id, found);
-        // update URL
-        const u = new URL(location.href);
-        u.searchParams.set('customerId', id);
-        history.replaceState(null,'',u.toString());
-      };
+        sel.onchange = () => {
+          const id = sel.value;
+          const found = sorted.find(x=>x.id===id);
+          onCustomerChange(id, found);
+          // update URL
+          const u = new URL(location.href);
+          u.searchParams.set('customerId', id);
+          history.replaceState(null,'',u.toString());
+        };
+      }catch(err){
+        sel.innerHTML = '<option value="" disabled selected>Failed to load clients</option>';
+        console.error('loadCustomers error', err);
+      }
     }
 
     async function onCustomerChange(customerId, customer){
@@ -194,113 +211,122 @@
       document.getElementById('pageTitle').textContent =
         `Outbound Management — ${customer?.name || customerId}`;
 
-      // Company card
+      // Company block
       document.getElementById('companyName').textContent = customer?.name || '—';
-      // Individual name (Stripe "name" on the Customer object can be your company — if you store
-      // the contact person separately in metadata, show that; else fall back to name)
-      const individual = customer?.metadata?.individual_name || '';
-      const personLine = individual ? individual : '';
-      document.getElementById('personLine').textContent = personLine || '';
+      const contact = customer?.metadata?.contact_name || '';  // <-- contact_name from metadata
+      document.getElementById('contactName').textContent = contact || '';
       document.getElementById('companyEmail').textContent = customer?.email || '';
 
-      // Payment methods (with default badge)
-      const pmData = await fetch(`/.netlify/functions/list-payment-methods?customerId=${customerId}`).then(r=>r.json());
-      const wrap = document.getElementById('pmList');
-      wrap.innerHTML = '';
-      const defaultPm = pmData.defaultPaymentMethod;
+      // Payment methods (with Default badge)
+      try{
+        const pmData = await fetch(`/.netlify/functions/list-payment-methods?customerId=${customerId}`).then(r=>r.json());
+        const wrap = document.getElementById('pmList');
+        wrap.innerHTML = '';
+        const defaultPm = pmData.defaultPaymentMethod || null;
 
-      if (!pmData.paymentMethods.length) {
-        wrap.innerHTML = '<div class="muted">No payment methods on file.</div>';
-      } else {
-        pmData.paymentMethods.forEach(pm=>{
-          const brand = capWord(pm.card.brand);
-          const exp = new Date(pm.card.exp_year, pm.card.exp_month-1, 1);
-          const expLabel = `Expires ${monthNames[exp.getMonth()]} ${exp.getFullYear()}`;
+        if (!pmData.paymentMethods || !pmData.paymentMethods.length) {
+          wrap.innerHTML = '<div class="muted">No payment methods on file.</div>';
+        } else {
+          pmData.paymentMethods.forEach(pm=>{
+            const brand = capWord(pm.card.brand);
+            const exp = new Date(pm.card.exp_year, pm.card.exp_month-1, 1);
+            const expLabel = `Expires ${monthNames[exp.getMonth()]} ${exp.getFullYear()}`;
 
-          const row = document.createElement('div');
-          row.className = 'pm';
-          const left = document.createElement('div');
-          left.textContent = `${brand} •••• ${pm.card.last4}`;
-          const right = document.createElement('div');
-          right.textContent = expLabel;
+            const row = document.createElement('div');
+            row.className = 'pm';
+            const left = document.createElement('div');
+            left.textContent = `${brand} •••• ${pm.card.last4}`;
+            const right = document.createElement('div');
+            right.textContent = expLabel;
 
-          if (pm.id === defaultPm) {
-            const badge = document.createElement('span');
-            badge.className = 'default-badge';
-            badge.textContent = 'Default';
-            left.appendChild(badge);
-          }
+            if (defaultPm && pm.id === defaultPm) {
+              const badge = document.createElement('span');
+              badge.className = 'default-badge';
+              badge.textContent = 'Default';
+              left.appendChild(badge);
+            }
 
-          row.append(left, right);
-          wrap.append(row);
-        });
+            row.append(left, right);
+            wrap.append(row);
+          });
+        }
+      }catch(err){
+        console.error('load PMs error', err);
+        document.getElementById('pmList').innerHTML = '<div class="muted">Unable to load payment methods.</div>';
       }
 
       // Payments (charges) — newest first
-      const charges = await fetch(`/.netlify/functions/list-charges?customerId=${customerId}`).then(r=>r.json());
-      const tbody = document.getElementById('paymentsBody');
-      tbody.innerHTML = '';
+      try{
+        const charges = await fetch(`/.netlify/functions/list-charges?customerId=${customerId}`).then(r=>r.json());
+        const tbody = document.getElementById('paymentsBody');
+        tbody.innerHTML = '';
 
-      if (!Array.isArray(charges) || charges.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="muted">No payments found.</td></tr>`;
-        return;
-      }
-
-      charges.forEach(ch => {
-        const tr = document.createElement('tr');
-
-        // date
-        const tdDate = document.createElement('td');
-        tdDate.className = 'nowrap';
-        tdDate.textContent = fmtDate(ch.created);
-        tr.appendChild(tdDate);
-
-        // amount
-        const tdAmt = document.createElement('td');
-        tdAmt.textContent = fmtMoney(ch.amount, ch.currency);
-        tr.appendChild(tdAmt);
-
-        // status badge
-        const tdStatus = document.createElement('td');
-        const sb = document.createElement('span');
-        sb.className = 'status-badge ' + (ch.status === 'succeeded' ? 'status-succeeded' : 'status-failed');
-        sb.textContent = ch.status === 'succeeded' ? 'Paid' : 'Failed';
-        tdStatus.appendChild(sb);
-        tr.appendChild(tdStatus);
-
-        // statement descriptor
-        const tdStmt = document.createElement('td');
-        tdStmt.textContent = ch.statement_descriptor || '—';
-        tr.appendChild(tdStmt);
-
-        // description
-        const tdDesc = document.createElement('td');
-        tdDesc.textContent = ch.description || (ch.failure_message ? `Failed: ${ch.failure_message}` : '—');
-        tr.appendChild(tdDesc);
-
-        // payment method
-        const tdPm = document.createElement('td');
-        const brand = capWord(ch.card?.brand || '');
-        const last4 = ch.card?.last4 || '';
-        tdPm.textContent = (brand && last4) ? `${brand} •••• ${last4}` : '—';
-        tr.appendChild(tdPm);
-
-        // receipt link
-        const tdRec = document.createElement('td');
-        if (ch.receipt_url) {
-          const a = document.createElement('a');
-          a.href = ch.receipt_url; a.target = '_blank';
-          a.textContent = 'View';
-          tdRec.appendChild(a);
-        } else {
-          tdRec.textContent = '—';
+        if (!Array.isArray(charges) || charges.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" class="muted">No payments found.</td></tr>`;
+          return;
         }
-        tr.appendChild(tdRec);
 
-        tbody.appendChild(tr);
-      });
+        charges.forEach(ch => {
+          const tr = document.createElement('tr');
+
+          // date
+          const tdDate = document.createElement('td');
+          tdDate.className = 'nowrap';
+          tdDate.textContent = fmtDate(ch.created);
+          tr.appendChild(tdDate);
+
+          // amount
+          const tdAmt = document.createElement('td');
+          tdAmt.textContent = fmtMoney(ch.amount, ch.currency);
+          tr.appendChild(tdAmt);
+
+          // status
+          const tdStatus = document.createElement('td');
+          const sb = document.createElement('span');
+          sb.className = 'status-badge ' + (ch.status === 'succeeded' ? 'status-succeeded' : 'status-failed');
+          sb.textContent = ch.status === 'succeeded' ? 'Paid' : 'Failed';
+          tdStatus.appendChild(sb);
+          tr.appendChild(tdStatus);
+
+          // statement descriptor
+          const tdStmt = document.createElement('td');
+          tdStmt.textContent = ch.statement_descriptor || '—';
+          tr.appendChild(tdStmt);
+
+          // description
+          const tdDesc = document.createElement('td');
+          tdDesc.textContent = ch.description || (ch.failure_message ? `Failed: ${ch.failure_message}` : '—');
+          tr.appendChild(tdDesc);
+
+          // payment method
+          const tdPm = document.createElement('td');
+          const brand = capWord(ch.card?.brand || '');
+          const last4 = ch.card?.last4 || '';
+          tdPm.textContent = (brand && last4) ? `${brand} •••• ${last4}` : '—';
+          tr.appendChild(tdPm);
+
+          // receipt link
+          const tdRec = document.createElement('td');
+          if (ch.receipt_url) {
+            const a = document.createElement('a');
+            a.href = ch.receipt_url; a.target = '_blank';
+            a.textContent = 'View';
+            tdRec.appendChild(a);
+          } else {
+            tdRec.textContent = '—';
+          }
+          tr.appendChild(tdRec);
+
+          tbody.appendChild(tr);
+        });
+      }catch(err){
+        console.error('load charges error', err);
+        const tbody = document.getElementById('paymentsBody');
+        tbody.innerHTML = `<tr><td colspan="7" class="muted">Unable to load payments.</td></tr>`;
+      }
     }
 
+    // Boot
     loadCustomers();
   </script>
 </body>
