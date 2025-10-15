@@ -122,7 +122,7 @@
         </select>
         <button id="nextBtn" disabled>Next</button>
       </div>
-      <p class="muted" style="margin-top:.6em;">Only customers with <span class="mono">metadata.client_type = "outbound"</span> are listed.</p>
+    <p class="muted" style="margin-top:.6em;"> If you don't see a client in this list, please contact tech support.</p>
     </section>
 
     <!-- Company -->
@@ -212,30 +212,53 @@
     })();
 
     // ========= Selector logic =========
-    async function loadOutboundSelector(){
-      const sel = document.getElementById('customerSelect');
-      const btn = document.getElementById('nextBtn');
+async function loadOutboundSelector(){
+  const sel = document.getElementById('customerSelect');
+  const btn = document.getElementById('nextBtn');
 
-      try{
-        const all = await fetch('/.netlify/functions/list-customers').then(r=>r.json());
-        const outbound = (all||[]).filter(c => c?.metadata?.client_type === 'outbound');
+  try {
+    let all = [];
+    let hasMore = true;
+    let startingAfter = null;
 
-        sel.innerHTML = '<option value="">Select a customer…</option>';
-        outbound.forEach(c=>{
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          opt.textContent = c.name || c.email || c.id;
-          sel.appendChild(opt);
-        });
-
-        sel.onchange = ()=> { btn.disabled = !sel.value; }
-        btn.onclick  = ()=> { if(sel.value) location.href = `outbound-management.html?customerId=${encodeURIComponent(sel.value)}`; }
-
-      }catch(err){
-        sel.innerHTML = '<option value="">Failed to load customers</option>';
-        console.error(err);
-      }
+    // paginate through all Stripe customers
+    while (hasMore) {
+      const url = startingAfter
+        ? `/.netlify/functions/list-customers?starting_after=${startingAfter}`
+        : '/.netlify/functions/list-customers';
+      const page = await fetch(url).then(r => r.json());
+      all = all.concat(page.data || page);
+      hasMore = page.has_more;
+      startingAfter = page.data?.[page.data.length - 1]?.id || null;
+      if (!hasMore) break;
     }
+
+    const outbound = (all || []).filter(c => c?.metadata?.client_type === 'outbound');
+
+    sel.innerHTML = '<option value="">Select a customer…</option>';
+    outbound.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name || c.email || c.id;
+      sel.appendChild(opt);
+    });
+
+    if (!outbound.length) {
+      const opt = document.createElement('option');
+      opt.value = "";
+      opt.textContent = "(No outbound clients found)";
+      sel.appendChild(opt);
+    }
+
+    sel.onchange = () => { btn.disabled = !sel.value; };
+    btn.onclick = () => {
+      if (sel.value) location.href = `outbound-management.html?customerId=${encodeURIComponent(sel.value)}`;
+    };
+  } catch (err) {
+    sel.innerHTML = '<option value="">Failed to load customers</option>';
+    console.error(err);
+  }
+}
 
     // ========= Details view =========
     async function renderCustomer(cusId){
