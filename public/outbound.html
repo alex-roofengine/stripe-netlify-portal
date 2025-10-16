@@ -4,181 +4,518 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Outbound Client Billing</title>
+
+  <!-- Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
   <style>
-    body,html { margin:0; padding:0; height:100%; font-family:'Inter',sans-serif; }
-    .sidebar { background:#000; color:#fff; width:280px; position:fixed; height:100%; padding:2em; box-sizing:border-box; }
-    .content { margin-left:280px; padding:2em; }
-    h1 { font-weight:600; margin-bottom:1em; }
-    .btn { display:inline-block; border:none; border-radius:6px; font-weight:600; cursor:pointer; padding:1em 2em; margin-right:10px; }
-    .btn-green { background:#28a745; color:#fff; }
-    .btn-gray { background:#e0e0e0; color:#000; }
-    label { font-weight:600; display:block; margin-top:20px; }
-    input { padding:10px; width:100%; margin-top:8px; box-sizing:border-box; border-radius:4px; border:1px solid #ccc; }
-    #card-element { margin-top:12px; padding:12px; border:1px solid #ccc; border-radius:4px; }
-    #submit { margin-top:20px; background:#007bff; color:#fff; width:100%; padding:1em; border:none; border-radius:6px; font-weight:600; cursor:pointer; }
-    #later-options { display:none; margin-top:20px; }
+    *{box-sizing:border-box}
+    body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif;background:#fafafa;color:#111}
+
+    /* Top bar */
+    .topbar{
+      position:sticky;top:0;z-index:10;
+      display:flex;align-items:center;justify-content:space-between;
+      background:#000;color:#fff;padding:.85rem 1.25rem
+    }
+    .topbar .brand{display:flex;align-items:center;gap:.75rem}
+    .topbar img{height:28px}
+    .topbar .home{
+      color:#fff;text-decoration:none;border:1px solid #444;border-radius:8px;
+      padding:.4rem .7rem;font-weight:600
+    }
+
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem}
+
+    /* Grid: two columns */
+    .grid{
+      display:grid;grid-template-columns:1.15fr .85fr;gap:1.25rem
+    }
+
+    .card{
+      background:#fff;border:1px solid #e8e8e8;border-radius:12px;padding:1rem 1.25rem
+    }
+    .card h2{margin:.25rem 0 1rem;font-size:1.15rem}
+    .muted{color:#666}
+
+    /* Selector on top of form */
+    .row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
+    select, input[type="date"], input[type="number"], input[type="text"]{
+      padding:.65rem .75rem;border:1px solid #d6d6d6;border-radius:8px;background:#fff;font-size:1rem
+    }
+    select{min-width:300px}
+    label{display:block;font-weight:600;margin:.25rem 0 .35rem}
+
+    /* Description chooser */
+    .hint{font-size:.9rem;color:#555;margin-top:.35rem}
+    .inline-hint{font-size:.9rem;color:#555;margin-left:.35rem}
+
+    /* Radio pills */
+    .choices{display:flex;gap:.75rem}
+    .pill{
+      border:1px solid #d6d6d6;border-radius:999px;padding:.45rem .9rem;cursor:pointer;
+      font-weight:600;user-select:none
+    }
+    .pill[data-active="true"]{background:#111;color:#fff;border-color:#111}
+    .pill.green[data-active="true"]{background:#00D084;border-color:#00D084}
+    .pill.orange[data-active="true"]{background:#ff7800;border-color:#ff7800}
+
+    /* Stripe card box */
+    #new-card{
+      border:1px solid #d6d6d6;border-radius:8px;padding:12px;margin-top:.25rem
+    }
+
+    /* PM list (left picker & right info) */
+    .pm{display:flex;justify-content:space-between;align-items:center;
+        border:1px solid #eee;border-radius:10px;padding:.65rem .75rem;margin:.5rem 0}
+    .pm .meta{display:flex;align-items:center;gap:.5rem}
+    .badge{display:inline-block;border-radius:6px;padding:2px 6px;font-size:.8rem;font-weight:700}
+    .badge.default{background:#007bff;color:#fff}
+    .pm small{color:#666}
+    .pm-actions{display:flex;gap:.5rem}
+    .link-btn{border:1px solid #ddd;background:#fff;border-radius:8px;padding:.35rem .6rem;cursor:pointer}
+
+    /* History table (right) */
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:.6rem;border-bottom:1px solid #eee;text-align:left}
+    th{font-weight:700}
+    .nowrap{white-space:nowrap}
+    .status{display:inline-block;padding:.2rem .55rem;border-radius:999px;font-weight:700;font-size:.8rem}
+    .status.ok{background:#e8f7ee;color:#1a7f37}
+    .status.fail{background:#fde8ea;color:#b42318}
 
     /* Loading overlay */
-    #loadingOverlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
-      display: none; align-items: center; justify-content: center; z-index: 9999;
-    }
-    .loader {
-      width: 64px; height: 64px; border-radius: 50%;
-      border: 6px solid #fff; border-top-color: transparent;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999}
+    .loader{width:58px;height:58px;border-radius:50%;border:6px solid #fff;border-top-color:transparent;animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
 
-    @media(max-width:768px){
-      .sidebar{position:relative;width:100%;height:auto;padding:1em}
-      .content{margin-left:0;padding:1em}
-      .btn{width:100%;margin-bottom:.75em}
+    /* Responsive */
+    @media(max-width: 980px){
+      .grid{grid-template-columns:1fr}
+      select{min-width:unset;width:100%}
     }
   </style>
 </head>
 <body>
-  <div class="sidebar">
-    <img src="assets/logo.svg" width="150" alt="RoofEngine" />
-    <h2>RoofEngine Billing Portal</h2>
-    <p id="timestamp"></p>
-    <a href="index.html" class="home">← Home</a><br><br>
-    <a href="outbound.html" class="home">↳ Outbound Billing</a>
-  </div>
-
-  <div class="content">
-    <h1>Outbound Client Billing</h1>
-    <p id="client-info">Loading client...</p>
-
-    <!-- Retainer Amount -->
-    <label for="amount">Retainer Amount (USD)</label>
-    <input type="number" id="amount" placeholder="Enter amount to charge" required />
-
-    <!-- Buttons -->
-    <div style="margin-top:20px;">
-      <button class="btn btn-green" id="charge-now">Charge Now</button>
-      <button class="btn btn-gray" id="charge-later">Charge Later</button>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.svg" alt="RoofEngine" />
+      <div><strong>RoofEngine Billing Portal</strong> <span class="muted">(Outbound)</span></div>
     </div>
+    <a class="home" href="index.html">← Home</a>
+  </header>
 
-    <!-- Charge Later Options -->
-    <div id="later-options">
-      <label for="due-date">Select Due Date</label>
-      <input type="date" id="due-date" />
+  <main class="wrap">
+    <div class="grid">
+      <!-- LEFT: Charging form -->
+      <section class="card">
+        <h2>Charge an Outbound Client</h2>
+
+        <!-- Customer selector -->
+        <div class="row" style="margin-bottom:.5rem">
+          <label for="custSel" style="margin:0">Select client</label>
+          <select id="custSel">
+            <option value="" disabled selected>Loading customers…</option>
+          </select>
+          <span class="muted" id="selHelp">If you don't see a client in this list, please contact tech support.</span>
+        </div>
+
+        <!-- Amount -->
+        <div style="margin-top:.6rem">
+          <label for="amount">Amount (USD)</label>
+          <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
+        </div>
+
+        <!-- Description -->
+        <div style="margin-top:.6rem">
+          <label for="descSel">Description</label>
+          <select id="descSel" required>
+            <option value="" disabled selected>Select a description…</option>
+            <option value="RoofEngine Outbound Monthly Retainer - [MMM, YYYY]">RoofEngine Outbound Monthly Retainer - [MMM, YYYY]</option>
+            <option value="RoofEngine Outbound Deposit">RoofEngine Outbound Deposit</option>
+            <option value="RoofEngine Outbound Trial">RoofEngine Outbound Trial</option>
+            <option value="RoofEngine Outbound Pay Per Lead">RoofEngine Outbound Pay Per Lead</option>
+            <option value="__other__">Other, please type in the description…</option>
+          </select>
+          <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
+          <div class="hint">
+            Monthly Retainer → the monthly payment • Deposit → partial upfront • Pay Per Lead → PPL •
+            “Other” → special cases / top-ups.
+          </div>
+        </div>
+
+        <!-- Charge when -->
+        <div style="margin-top:1rem">
+          <label>Charge timing</label>
+          <div class="choices">
+            <div class="pill green" data-role="when" data-val="now" data-active="true">Charge Now</div>
+            <div class="pill orange" data-role="when" data-val="later">Charge Later</div>
+          </div>
+          <div id="laterBox" style="margin-top:.6rem;display:none">
+            <label for="chargeDate" style="display:inline">Charge date</label>
+            <input type="date" id="chargeDate">
+            <span class="inline-hint">Charged 9:00 AM America/New_York</span>
+          </div>
+        </div>
+
+        <!-- Payment method picker -->
+        <div style="margin-top:1rem">
+          <label>Payment Method</label>
+          <div id="pmPicker"></div>
+          <div id="noPmHint" class="muted" style="display:none;margin-top:.25rem">
+            No card on file. Add a new card below.
+          </div>
+        </div>
+
+        <!-- Add new card (always available) -->
+        <div style="margin-top:1rem">
+          <label>Add / Update Card (will be set as default)</label>
+          <div id="new-card"></div>
+          <div class="row" style="margin-top:.6rem">
+            <button id="saveCard" class="link-btn">Save card & set default</button>
+            <span id="saveCardMsg" class="muted"></span>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <div style="margin-top:1.25rem">
+          <button id="submit" class="pill" style="border-radius:10px;padding:.7rem 1.2rem;border-color:#111">Submit Charge</button>
+          <span id="resultMsg" class="muted" style="margin-left:.5rem"></span>
+        </div>
+      </section>
+
+      <!-- RIGHT: Company mini panel -->
+      <aside class="card">
+        <h2 id="panelTitle">Client</h2>
+        <div style="margin-bottom:1rem">
+          <div id="coName" style="font-weight:700">—</div>
+          <div id="contactName" class="muted">—</div>
+          <div id="coEmail" class="muted">—</div>
+        </div>
+
+        <div style="margin:.75rem 0">
+          <strong>Payment Methods</strong>
+          <div id="pmList"></div>
+        </div>
+
+        <div style="margin-top:1rem">
+          <strong>Recent Payments</strong>
+          <table style="margin-top:.4rem">
+            <thead>
+              <tr>
+                <th>Date</th><th>Description</th><th>Status</th><th>Receipt</th>
+              </tr>
+            </thead>
+            <tbody id="histBody">
+              <tr><td colspan="4" class="muted">Select a client to load history.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="muted" style="margin-top:1rem">
+          Note: This tool charges **credit cards only**. For ACH, please contact the billing team.
+        </div>
+      </aside>
     </div>
-
-    <!-- Stripe Card Element -->
-    <label for="card-element">Card Details</label>
-    <div id="card-element"></div>
-    <button id="submit">Submit</button>
-  </div>
+  </main>
 
   <!-- Loading overlay -->
   <div id="loadingOverlay"><div class="loader" aria-label="Processing…"></div></div>
 
+  <!-- Stripe -->
   <script src="https://js.stripe.com/v3/"></script>
   <script>
-    // Tiny uuid generator for idempotency
-    function uuid() {
-      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      );
-    }
-    function showLoading(on) {
-      document.getElementById("loadingOverlay").style.display = on ? "flex" : "none";
-      const btn = document.getElementById("submit");
-      btn.disabled = on;
-      btn.style.opacity = on ? 0.7 : 1;
-    }
+    // Helpers
+    const $ = (s)=>document.querySelector(s);
+    const $$ = (s)=>Array.from(document.querySelectorAll(s));
+    const showLoading = (on)=>{$('#loadingOverlay').style.display=on?'flex':'none'};
+    const money = (cents)=> new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format((+cents||0)/100);
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const fmtDate = (unix)=>{const d=new Date(unix*1000);return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`};
+    const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
 
-    (async function () {
-      // 1) Fetch publishable key from Netlify Function (you must have netlify/functions/public-keys.js)
-      const res = await fetch("/.netlify/functions/public-keys", { cache: "no-store" });
-      const { publishableKey } = await res.json();
-      if (!publishableKey) { alert("⚠️ Missing Stripe publishable key."); return; }
+    // State
+    let stripe, elements, cardEl;
+    let customers = [];
+    let selectedCustomer = null;
+    let defaultPmId = null;
+    let currentWhen = 'now'; // now | later
+    const OUTBOUND_DESCRIPTOR = 'ROOFENGINE OUTBOUND';
+    const OUTBOUND_PRODUCT_ID = 'prod_TC1NUvIsUykBKs';
 
-      // 2) Init Stripe
-      const stripe = Stripe(publishableKey);
-      const elements = stripe.elements();
-      const cardElement = elements.create("card");
-      cardElement.mount("#card-element");
+    // Boot
+    (async function init(){
+      // key
+      const { publishableKey } = await fetch('/.netlify/functions/public-keys',{cache:'no-store'}).then(r=>r.json());
+      stripe = Stripe(publishableKey);
+      elements = stripe.elements();
+      cardEl = elements.create('card', { style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+      cardEl.mount('#new-card');
 
-      let clientId = null;
-      let mode = "now";
+      // description default month
+      const monthTemplate = `RoofEngine Outbound Monthly Retainer - [${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}]`;
+      // If that option exists, preselect it
+      [...$('#descSel').options].forEach(o=>{ if(o.value.startsWith('RoofEngine Outbound Monthly Retainer')) o.textContent = monthTemplate; });
 
-      async function loadClient() {
-        const res = await fetch("/.netlify/functions/get-latest-outbound-customer");
-        if (!res.ok) {
-          document.getElementById("client-info").innerText = "⚠️ Failed to load client.";
-          return;
-        }
-        const data = await res.json();
-        clientId = data.id;
-        document.getElementById("client-info").innerText =
-          `Charging client: ${data.name || data.email || data.id}`;
-      }
-      loadClient();
-
-      document.getElementById("charge-now").addEventListener("click", () => {
-        mode = "now";
-        document.getElementById("later-options").style.display = "none";
-      });
-      document.getElementById("charge-later").addEventListener("click", () => {
-        mode = "later";
-        document.getElementById("later-options").style.display = "block";
-      });
-
-      document.getElementById("submit").addEventListener("click", async (e) => {
-        e.preventDefault();
-
-        const amount = document.getElementById("amount").value;
-        if (!amount || amount <= 0) {
-          alert("Please enter a valid retainer amount.");
-          return;
-        }
-
-        showLoading(true);
-        try {
-          // Create payment method in browser
-          const { paymentMethod, error } = await stripe.createPaymentMethod({
-            type: "card",
-            card: cardElement,
-          });
-          if (error) { alert(error.message); return; }
-
-          const payload = {
-            customerId: clientId,
-            paymentMethodId: paymentMethod.id,
-            amount: amount,
-            requestId: uuid() // used by server for idempotency
-          };
-
-          let endpoint = "/.netlify/functions/outbound-client-charge-now";
-          if (mode === "later") {
-            const dueDate = document.getElementById("due-date").value;
-            if (!dueDate) { alert("Please select a due date for scheduled charge."); return; }
-            payload.dueDate = dueDate;
-            endpoint = "/.netlify/functions/outbound-client-charge-later";
-          }
-
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-
-          const result = await response.json();
-          if (result.error) alert("Error: " + result.error);
-          else alert("✅ Success: " + JSON.stringify(result));
-        } catch (err) {
-          alert("Unexpected error: " + (err?.message || err));
-        } finally {
-          showLoading(false);
-        }
-      });
+      bindUI();
+      await loadCustomersAndFill();
     })();
+
+    function bindUI(){
+      // description other toggle
+      $('#descSel').addEventListener('change', ()=>{
+        $('#descOther').style.display = ($('#descSel').value === '__other__') ? 'block' : 'none';
+      });
+
+      // when pills
+      $$('[data-role="when"]').forEach(p=>{
+        p.addEventListener('click', ()=>{
+          $$('[data-role="when"]').forEach(x=>x.setAttribute('data-active','false'));
+          p.setAttribute('data-active','true');
+          currentWhen = p.dataset.val;
+          $('#laterBox').style.display = currentWhen==='later' ? 'block' : 'none';
+        });
+      });
+
+      // save card
+      $('#saveCard').addEventListener('click', saveNewCard);
+      // submit
+      $('#submit').addEventListener('click', submitCharge);
+      // customer select
+      $('#custSel').addEventListener('change', async ()=>{
+        selectedCustomer = customers.find(c=>c.id === $('#custSel').value) || null;
+        await refreshRightPanel();
+        await refreshPaymentPickers();
+        $('#resultMsg').textContent = '';
+      });
+    }
+
+    async function loadCustomersAndFill(){
+      const all = await fetch('/.netlify/functions/list-customers').then(r=>r.json());
+      // Only outbound
+      const outs = all.filter(c=>c.metadata && c.metadata.client_type === 'outbound');
+
+      // newest first by created, then remaining A→Z
+      const newest = outs.slice().sort((a,b)=>(b.created||0)-(a.created||0));
+      const top = newest[0] ? [newest[0]] : [];
+      const rest = outs.filter(c=>!top.find(t=>t.id===c.id))
+                       .sort((a,b)=> ( (a.name||a.email||'').toLowerCase() )
+                         .localeCompare( (b.name||b.email||'').toLowerCase() ));
+
+      customers = [...top, ...rest];
+
+      const sel = $('#custSel');
+      sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
+      customers.forEach(c=>{
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name || c.email || c.id;
+        sel.appendChild(opt);
+      });
+
+      // If URL has customerId, preselect
+      const urlId = new URLSearchParams(location.search).get('customerId');
+      if (urlId) { sel.value = urlId; }
+      if (sel.value) {
+        selectedCustomer = customers.find(c=>c.id===sel.value);
+        await refreshRightPanel();
+        await refreshPaymentPickers();
+      }
+    }
+
+    async function refreshRightPanel(){
+      if (!selectedCustomer){
+        $('#panelTitle').textContent = 'Client';
+        $('#coName').textContent = '—';
+        $('#contactName').textContent = '—';
+        $('#coEmail').textContent = '—';
+        $('#pmList').innerHTML = '';
+        $('#histBody').innerHTML = '<tr><td colspan="4" class="muted">Select a client to load history.</td></tr>';
+        return;
+      }
+
+      $('#panelTitle').textContent = `Client — ${selectedCustomer.name || selectedCustomer.id}`;
+      $('#coName').textContent     = selectedCustomer.name || '—';
+      $('#contactName').textContent= selectedCustomer.metadata?.contact_name || '—';
+      $('#coEmail').textContent    = selectedCustomer.email || '—';
+
+      // Right-side PM list (with Default badge)
+      const pmData = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
+      defaultPmId = pmData.defaultPaymentMethod || null;
+      const listEl = $('#pmList'); listEl.innerHTML = '';
+      if (!pmData.paymentMethods?.length){
+        listEl.innerHTML = '<div class="muted">No payment methods on file.</div>';
+      } else {
+        pmData.paymentMethods.forEach(pm=>{
+          const exp = `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`;
+          const row = document.createElement('div');
+          row.className = 'pm';
+          const l = document.createElement('div');
+          l.className = 'meta';
+          l.innerHTML = `${cap(pm.card.brand)} •••• ${pm.card.last4}` +
+                        (pm.id===defaultPmId ? ' <span class="badge default">Default</span>' : '');
+          const r = document.createElement('div'); r.innerHTML = `<small>${exp}</small>`;
+          row.append(l,r);
+          listEl.append(row);
+        });
+      }
+
+      // History (5 most recent charges)
+      const charges = await fetch(`/.netlify/functions/list-charges?customerId=${selectedCustomer.id}`).then(r=>r.json());
+      const body = $('#histBody'); body.innerHTML='';
+      if (!charges?.length){
+        body.innerHTML = '<tr><td colspan="4" class="muted">No payments found.</td></tr>';
+      } else {
+        charges.slice(0,5).forEach(ch=>{
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="nowrap">${fmtDate(ch.created)}</td>
+            <td>${ch.description || '—'}</td>
+            <td>${ch.status==='succeeded' ? '<span class="status ok">Paid</span>' : '<span class="status fail">Failed</span>'}</td>
+            <td>${ch.receipt_url ? `<a target="_blank" href="${ch.receipt_url}">Receipt</a>` : '—'}</td>
+          `;
+          body.appendChild(tr);
+        });
+      }
+    }
+
+    async function refreshPaymentPickers(){
+      const wrap = $('#pmPicker'); wrap.innerHTML = '';
+      const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
+      defaultPmId = data.defaultPaymentMethod || null;
+
+      if (!data.paymentMethods?.length){
+        $('#noPmHint').style.display = 'block';
+        return;
+      }
+      $('#noPmHint').style.display = 'none';
+
+      data.paymentMethods.forEach(pm=>{
+        const id = `pick-${pm.id}`;
+        const label = document.createElement('label');
+        label.className = 'pm';
+        label.innerHTML = `
+          <div class="meta">
+            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+            <span>${cap(pm.card.brand)} •••• ${pm.card.last4}${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}</span>
+          </div>
+          <small>Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}</small>
+        `;
+        wrap.appendChild(label);
+      });
+    }
+
+    async function saveNewCard(e){
+      e.preventDefault();
+      if (!selectedCustomer) { alert('Select a client first.'); return; }
+      $('#saveCardMsg').textContent = '';
+      showLoading(true);
+      try{
+        // Create SetupIntent
+        const { clientSecret, error:siErr } = await fetch('/.netlify/functions/create-setup-intent',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ customerId: selectedCustomer.id })
+        }).then(r=>r.json());
+        if (siErr || !clientSecret) throw new Error(siErr || 'No client secret');
+
+        // Confirm
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{
+          payment_method:{ card: cardEl }
+        });
+        if (error) throw new Error(error.message);
+
+        // Attach & set default
+        const attach = await fetch('/.netlify/functions/attach-method',{
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ customerId: selectedCustomer.id, paymentMethodId: setupIntent.payment_method, setDefault: true })
+        }).then(r=>r.json());
+        if (attach.error) throw new Error(attach.error);
+
+        $('#saveCardMsg').textContent = '✅ Card saved & set as default';
+        await refreshRightPanel();
+        await refreshPaymentPickers();
+      }catch(err){
+        $('#saveCardMsg').textContent = '❌ ' + (err?.message || err);
+      }finally{ showLoading(false); }
+    }
+
+    function getSelectedPmId(){
+      const checked = document.querySelector('input[name="pmPick"]:checked');
+      return checked ? checked.value : null;
+    }
+
+    function resolveDescription(){
+      if ($('#descSel').value === '__other__'){
+        return $('#descOther').value.trim();
+      }
+      return $('#descSel').value.replace('[MMM, YYYY]', `${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}`);
+    }
+
+    async function submitCharge(e){
+      e.preventDefault();
+      $('#resultMsg').textContent = '';
+      if (!selectedCustomer){ alert('Please select a client.'); return; }
+
+      const amount = parseFloat($('#amount').value);
+      if (!amount || amount <= 0){ alert('Enter a valid amount.'); return; }
+
+      const desc = resolveDescription();
+      if (!desc){ alert('Please choose or enter a description.'); return; }
+
+      // pick pm or create temporary from new-card entry
+      let pmId = getSelectedPmId(); // may be null if no PMs
+      showLoading(true);
+      try{
+        if (!pmId){
+          // create a one-off PM from the card element
+          const { paymentMethod, error } = await stripe.createPaymentMethod({ type:'card', card: cardEl });
+          if (error) throw new Error(error.message);
+          pmId = paymentMethod.id;
+        }
+
+        if (currentWhen === 'now'){
+          const res = await fetch('/.netlify/functions/outbound-client-charge-now',{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              customerId: selectedCustomer.id,
+              paymentMethodId: pmId,
+              amount: Math.round(amount * 100),
+              statementDescriptor: OUTBOUND_DESCRIPTOR,
+              description: desc
+            })
+          }).then(r=>r.json());
+
+          if (res.error) throw new Error(res.error);
+          $('#resultMsg').textContent = '✅ Charged successfully';
+        } else {
+          const date = $('#chargeDate').value;
+          if (!date){ alert('Pick a charge date.'); showLoading(false); return; }
+          const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+              customerId: selectedCustomer.id,
+              paymentMethodId: pmId,
+              productId: OUTBOUND_PRODUCT_ID,
+              date,
+              description: desc,
+              statementDescriptor: OUTBOUND_DESCRIPTOR
+            })
+          }).then(r=>r.json());
+          if (res.error) throw new Error(res.error);
+          $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
+        }
+
+        // Clear form + refresh right panel
+        $('#amount').value = '';
+        $('#descOther').value = '';
+        await refreshRightPanel();
+      }catch(err){
+        $('#resultMsg').textContent = '❌ ' + (err?.message || err);
+      }finally{ showLoading(false); }
+    }
   </script>
 </body>
 </html>
