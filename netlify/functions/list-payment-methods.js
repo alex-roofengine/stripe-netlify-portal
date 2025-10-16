@@ -4,7 +4,7 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2020-08-27' 
 
 async function listAllPaymentMethods(customer, type) {
   let all = [];
-  let starting_after = undefined;
+  let starting_after;
   while (true) {
     const page = await stripe.paymentMethods.list({
       customer,
@@ -26,18 +26,33 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId' }) };
     }
 
-    // 1) Cards
-    const cards = await listAllPaymentMethods(customerId, 'card');
+    // 1) List attached cards & us_bank_account PMs
+    const [cards, banksRaw] = await Promise.all([
+      listAllPaymentMethods(customerId, 'card'),
+      listAllPaymentMethods(customerId, 'us_bank_account'),
+    ]);
 
-    // 2) US bank accounts (ACH)
-    const banksRaw = await listAllPaymentMethods(customerId, 'us_bank_account');
-    // Only keep VERIFIED bank accounts
-    const banks = banksRaw.filter(pm => pm.us_bank_account?.status === 'verified');
+    // Keep only VERIFIED ACH bank accounts
+    const banks = (banksRaw || []).filter(pm => pm.us_bank_account?.status === 'verified');
 
-    // 3) Customer (for default)
-    const customer = await stripe.customers.retrieve(customerId);
+    // 2) Retrieve customer (to know default PM and possibly merge it if missing)
+    //    We expand the default_payment_method so we can inspect it immediately.
+    const customer = await stripe.customers.retrieve(customerId, {
+      expand: ['invoice_settings.default_payment_method'],
+    });
 
-    // 4) Shape a single unified list
+    const defaultPM = customer.invoice_settings?.default_payment_method || null;
+
+    // 3) If default PM exists and is a verified ACH, but not in our banks list, merge it in.
+    if (defaultPM && defaultPM.object === 'payment_method' && defaultPM.type === 'us_bank_account') {
+      const isVerified = defaultPM.us_bank_account?.status === 'verified';
+      const alreadyListed = banks.some(b => b.id === defaultPM.id);
+      if (isVerified && !alreadyListed) {
+        banks.push(defaultPM);
+      }
+    }
+
+    // 4) Shape unified array for the frontend
     const unified = [
       ...cards.map(pm => ({
         id: pm.id,
@@ -56,7 +71,7 @@ exports.handler = async (event) => {
           bank_name: pm.us_bank_account?.bank_name || 'Bank Account',
           last4: pm.us_bank_account?.last4 || '',
           account_type: pm.us_bank_account?.account_type || '',   // checking | savings
-          status: pm.us_bank_account?.status || '',               // verified (we filtered)
+          status: pm.us_bank_account?.status || '',               // verified (filtered)
         }
       })),
     ];
@@ -66,7 +81,7 @@ exports.handler = async (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         paymentMethods: unified,
-        defaultPaymentMethod: customer.invoice_settings?.default_payment_method || null
+        defaultPaymentMethod: customer.invoice_settings?.default_payment_method?.id || null
       })
     };
   } catch (err) {
