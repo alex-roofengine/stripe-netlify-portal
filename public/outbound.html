@@ -434,43 +434,101 @@
     }
 
     async function refreshPaymentPickers(){
-      const wrap = $('#pmPicker'); wrap.innerHTML = '';
-      $('#addNewBtnWrap').style.display = 'none';
-      $('#newCardWrap').style.display   = 'none';
-      lastAddedPmId = null;
+    const wrap = $('#pmPicker'); wrap.innerHTML = '';
+    $('#addNewBtnWrap').style.display = 'none';
+    $('#newCardWrap').style.display   = 'none';
+    lastAddedPmId = null;
 
-      const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
-      defaultPmId = data.defaultPaymentMethod || null;
+    const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
+    defaultPmId = data.defaultPaymentMethod || null;
 
-      if (!data.paymentMethods?.length){
-        $('#noPmHint').style.display = 'block';
-        // show inline card form automatically
-        $('#newCardWrap').style.display = 'block';
-        mountCardElement();
-        return;
-      }
-      $('#noPmHint').style.display = 'none';
-      $('#addNewBtnWrap').style.display = 'flex';
+    // Separate by type for pretty labels (we'll show them in one list)
+    const cards = (data.paymentMethods || []).filter(p => p.type === 'card');
+    const banks = (data.paymentMethods || []).filter(p => p.type === 'us_bank_account'); // already verified per function
 
-      data.paymentMethods.forEach(pm=>{
-        const id = `pick-${pm.id}`;
-        const label = document.createElement('label');
-        label.className = 'pm';
-        const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
-        label.innerHTML = `
-          <div class="meta">
-            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
-            <span>${cap(pm.card.brand)} •••• ${pm.card.last4}
-              ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
-              ${recentBadge}
-            </span>
-          </div>
-          <small>Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}</small>
-        `;
-        wrap.appendChild(label);
-      });
+    // NOTHING ON FILE
+    if ((!cards.length) && (!banks.length)){
+      $('#noPmHint').style.display = 'block';
+      // show inline card form automatically
+      $('#newCardWrap').style.display = 'block';
+      mountCardElement();
+      return;
+    }
+    $('#noPmHint').style.display = 'none';
+    $('#addNewBtnWrap').style.display = 'flex';
+
+    // Helper for PM row
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    // CARD ROWS
+    cards.forEach(pm=>{
+      const id = `pick-${pm.id}`;
+      const label = document.createElement('label');
+      label.className = 'pm';
+      const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
+      const expTxt = pm.card?.exp_month && pm.card?.exp_year
+        ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`
+        : '';
+      label.innerHTML = `
+        <div class="meta">
+          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+          <span>${cap(pm.card.brand)} •••• ${pm.card.last4}
+            ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
+            ${recentBadge}
+          </span>
+        </div>
+        <small>${expTxt}</small>
+      `;
+      wrap.appendChild(label);
+    });
+
+    // BANK ROWS (ACH) — verified only
+    banks.forEach(pm=>{
+      const id = `pick-${pm.id}`;
+      const info = pm.bank || {};
+      const bankName = info.bank_name || 'Bank Account';
+      const acctType = info.account_type ? ` (${info.account_type})` : '';
+      const verified = info.status === 'verified';
+      const label = document.createElement('label');
+      label.className = 'pm';
+      label.innerHTML = `
+        <div class="meta">
+          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+          <span>${bankName} •••• ${info.last4}${acctType}
+            ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
+            ${verified ? ' <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>' : ''}
+          </span>
+        </div>
+        <small>${verified ? 'Verified bank account' : 'Not verified'}</small>
+      `;
+      wrap.appendChild(label);
+    });
+
+    // ACH settlement reminder under the picker when a bank option is chosen
+    // (Create or reuse a small hint node)
+    let achHint = document.getElementById('achHint');
+    if (!achHint) {
+      achHint = document.createElement('div');
+      achHint.id = 'achHint';
+      achHint.className = 'muted';
+      achHint.style.marginTop = '.35rem';
+      wrap.parentElement.appendChild(achHint);
     }
 
+    const setAchHint = () => {
+      const chosen = document.querySelector('input[name="pmPick"]:checked');
+      if (!chosen) { achHint.textContent = ''; return; }
+      const pmChosen = [...cards, ...banks].find(x=>x.id === chosen.value);
+      if (pmChosen?.type === 'us_bank_account') {
+        achHint.textContent = 'Note: ACH debits can take up to 7 business days to settle.';
+      } else {
+        achHint.textContent = '';
+      }
+    };
+    // Run once & then on change
+    setAchHint();
+    wrap.addEventListener('change', setAchHint, { once:false });
+  }
     async function saveNewCard(e){
       e.preventDefault();
       if (!selectedCustomer) { alert('Select a client first.'); return; }
