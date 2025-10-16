@@ -582,67 +582,105 @@
     }
 
     async function submitCharge(e){
-      e.preventDefault();
-      $('#resultMsg').textContent = '';
-      if (!selectedCustomer){ alert('Please select a client.'); return; }
+  e.preventDefault();
+  $('#resultMsg').textContent = '';
 
-      const amount = parseFloat($('#amount').value);
-      if (!amount || amount <= 0){ alert('Enter a valid amount.'); return; }
+  if (!selectedCustomer){
+    alert('Please select a client.');
+    return;
+  }
 
-      const desc = resolveDescription();
-      if (!desc){ alert('Please choose or enter a description.'); return; }
+  const amountVal = parseFloat($('#amount').value);
+  if (!amountVal || amountVal <= 0){
+    alert('Enter a valid amount.');
+    return;
+  }
 
-      let pmId = getSelectedPmId(); // may be null if no PMs + user didn’t add
-      showOverlay(true);
-      try{
-        if (!pmId){
-          // create a one-off PM from the card element
-          mountCardElement();
-          const { paymentMethod, error } = await stripe.createPaymentMethod({ type:'card', card: cardEl });
-          if (error) throw new Error(error.message);
-          pmId = paymentMethod.id;
-        }
+  const desc = resolveDescription();
+  if (!desc){
+    alert('Please choose or enter a description.');
+    return;
+  }
 
-        if (currentWhen === 'now'){
-          const res = await fetch('/.netlify/functions/outbound-client-charge-now',{
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              customerId: selectedCustomer.id,
-              paymentMethodId: pmId,
-              amount: Math.round(amount * 100),
-              statementDescriptor: OUTBOUND_DESCRIPTOR,
-              description: desc
-            })
-          }).then(r=>r.json());
+  // Pick a PM, or fall back to creating a one-off card PM from the card element
+  let pmId = getSelectedPmId();
 
-          if (res.error) throw new Error(res.error);
-          $('#resultMsg').textContent = '✅ Charged successfully';
-        } else {
-          const date = $('#chargeDate').value;
-          if (!date){ alert('Pick a charge date.'); showOverlay(false); return; }
-          const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({
-              customerId: selectedCustomer.id,
-              paymentMethodId: pmId,
-              productId: OUTBOUND_PRODUCT_ID,
-              date,
-              description: desc,
-              statementDescriptor: OUTBOUND_DESCRIPTOR
-            })
-          }).then(r=>r.json());
-          if (res.error) throw new Error(res.error);
-          $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
-        }
-
-        // Clear just the amount / custom desc
-        $('#amount').value = '';
-        if ($('#descSel').value === '__other__') $('#descOther').value = '';
-        await refreshRightPanel();
-      }catch(err){
-        $('#resultMsg').textContent = '❌ ' + (err?.message || err);
-      }finally{ showOverlay(false); }
+  showOverlay(true);
+  try{
+    if (!pmId){
+      // If no PM selected/available, create one from the card fields shown on the page
+      mountCardElement();
+      const { paymentMethod, error } = await stripe.createPaymentMethod({
+        type:'card',
+        card: cardEl
+      });
+      if (error) throw new Error(error.message);
+      pmId = paymentMethod.id;
     }
+
+    if (currentWhen === 'now'){
+      // Charge NOW (supports card or ACH automatically on the server)
+      const res = await fetch('/.netlify/functions/outbound-client-charge-now',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          paymentMethodId: pmId,
+          amount: Math.round(amountVal * 100),
+          statementDescriptor: OUTBOUND_DESCRIPTOR,
+          description: desc
+        })
+      }).then(r=>r.json());
+
+      if (res.error) throw new Error(res.error);
+
+      // If server indicates an ACH settlement note, show it
+      if (res.settlement_notice) {
+        $('#resultMsg').textContent = '✅ Charged. ' + res.settlement_notice;
+      } else {
+        $('#resultMsg').textContent = '✅ Charged successfully';
+      }
+
+    } else {
+      // Charge LATER (schedule)
+      const date = $('#chargeDate').value;
+      if (!date){
+        showOverlay(false);
+        alert('Pick a charge date.');
+        return;
+      }
+
+      const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          customerId: selectedCustomer.id,
+          paymentMethodId: pmId,
+          productId: OUTBOUND_PRODUCT_ID,
+          date,
+          description: desc,
+          statementDescriptor: OUTBOUND_DESCRIPTOR
+        })
+      }).then(r=>r.json());
+
+      if (res.error) throw new Error(res.error);
+      $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
+    }
+
+    // Clear inputs that make sense after a successful action
+    $('#amount').value = '';
+    if ($('#descSel').value === '__other__') $('#descOther').value = '';
+
+    // Refresh the right-hand panel (PMs & recent payments)
+    await refreshRightPanel();
+
+  } catch(err){
+    $('#resultMsg').textContent = '❌ ' + (err?.message || String(err));
+  } finally {
+    showOverlay(false);
+  }
+}
+
 
     // attach handler after elements exist
     document.addEventListener('click', (e)=>{
