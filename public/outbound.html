@@ -31,10 +31,10 @@
     .clock{color:#ddd;font-weight:600;min-width:max-content}
     .home{
       color:#fff;text-decoration:none;border:2px solid #b50000;background:#cc0000;
-      border-radius:10px;padding:.55rem .9rem;font-weight:800
+      border-radius:10px;padding:.7rem 1rem;font-weight:800
     }
 
-    /* Progress bar */
+    /* Slim progress (top) */
     #progress{height:3px;background:#F3E72F;width:0;transition:width .25s ease;position:relative;z-index:19}
 
     .wrap{max-width:1200px;margin:0 auto;padding:1.25rem}
@@ -78,15 +78,21 @@
 
     .link-btn{border:1px solid #ddd;background:#fff;border-radius:8px;padding:.45rem .75rem;cursor:pointer;font-weight:700}
 
-    /* Description tip */
+    /* Description tip: line items in pale yellow dashed box */
     .tip{
       background:#fff9d6;border:2px dashed #e8d269;border-radius:10px;
-      padding:.6rem .75rem;color:#5c4a00;margin-top:.45rem;font-size:.95rem
+      padding:.6rem .75rem;color:#5c4a00;margin-top:.6rem;font-size:.95rem
     }
+    .tip ul{margin:.25rem 0 0 .75rem;padding:0}
+    .tip li{margin:.25rem 0}
 
-    /* Submit */
-    #submit{border-radius:10px;padding:.7rem 1.2rem;border-color:#111}
-    #resultMsg{margin-left:.5rem}
+    /* Submit full width */
+    #submit{
+      display:block;width:100%;border-radius:10px;padding:.9rem 1.2rem;border:2px solid #00D084;
+      background:#00D084;color:#fff;font-weight:800;text-align:center
+    }
+    #submit:hover{filter:brightness(0.95)}
+    #resultMsg{display:inline-block;margin-top:.6rem}
 
     /* History table (right) */
     table{width:100%;border-collapse:collapse}
@@ -97,7 +103,17 @@
     .status.ok{background:#e8f7ee;color:#1a7f37}
     .status.fail{background:#fde8ea;color:#b42318}
 
-    /* Loading overlay for heavy ops */
+    /* Green Loading overlay (page) */
+    #pageLoading{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:9998;
+      background:rgba(0,208,132,0.9); /* #00D084 with opacity */
+      color:#fff;font-weight:900;font-size:1.2rem;letter-spacing:.3px
+    }
+    #pageLoading .box{
+      background:transparent;border:2px dashed #fff;border-radius:12px;padding:1rem 1.25rem
+    }
+
+    /* Heavy ops overlay for payment actions */
     #loadingOverlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999}
     .loader{width:58px;height:58px;border-radius:50%;border:6px solid #fff;border-top-color:transparent;animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -140,7 +156,7 @@
           <span class="muted" id="selHelp">If you don't see a client in this list, please contact tech support.</span>
         </div>
 
-        <!-- The rest of the form stays hidden until a client is chosen -->
+        <!-- Hidden until a client is chosen -->
         <div id="chargeSection" style="display:none">
           <div class="card" style="margin-top:1rem">
             <!-- Payment Method -->
@@ -183,8 +199,12 @@
               </select>
               <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
               <div class="tip">
-                Monthly Retainer → the monthly payment • Deposit → partial upfront •
-                Pay Per Lead → PPL • “Other” → special cases / top-ups.
+                <ul>
+                  <li><strong>Monthly Retainer</strong> → the monthly payment</li>
+                  <li><strong>Deposit</strong> → partial upfront</li>
+                  <li><strong>Pay Per Lead</strong> → PPL</li>
+                  <li><strong>“Other”</strong> → special cases / top-ups</li>
+                </ul>
               </div>
             </div>
 
@@ -202,15 +222,15 @@
               </div>
             </div>
 
-            <!-- Submit -->
+            <!-- Submit (full width) -->
             <div style="margin-top:1.25rem">
-              <button id="submit" class="pill" style="border:2px solid #111">Submit Charge</button>
-              <span id="resultMsg" class="muted"></span>
+              <button id="submit">Submit Charge</button>
+              <div id="resultMsg" class="muted"></div>
             </div>
           </div>
 
           <div class="muted" style="margin-top:1rem">
-            Note: This tool charges <strong>credit cards only</strong>. For ACH, please contact the billing team.
+            Note: This tool charges <strong>credit cards only</strong> or verified <strong>ACH bank accounts</strong>. ACH can take up to 7 business days to settle. For ACH setup or questions, contact billing.
           </div>
         </div>
       </section>
@@ -246,11 +266,16 @@
     </div>
   </main>
 
-  <!-- Loading overlay for heavy ops -->
+  <!-- Green Page Loading overlay -->
+  <div id="pageLoading">
+    <div class="box">Loading, Please Wait!</div>
+  </div>
+
+  <!-- Heavy ops overlay for payment actions -->
   <div id="loadingOverlay"><div class="loader" aria-label="Processing…"></div></div>
 
   <!-- Stripe -->
-  <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://js.stripe.com/v3"></script>
   <script>
     // ---------- Helpers ----------
     const $  = s => document.querySelector(s);
@@ -260,7 +285,9 @@
     const fmtDate = unix => { const d = new Date(unix*1000); return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; };
     const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
     const setProgress = val => { $('#progress').style.width = val + '%'; };
+
     const showOverlay = on => { $('#loadingOverlay').style.display = on ? 'flex' : 'none'; };
+    const showPageLoading = on => { $('#pageLoading').style.display = on ? 'flex' : 'none'; };
 
     function tickClock(){
       const opts={ timeZone:'America/New_York', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true };
@@ -321,12 +348,15 @@
         if (!$('#chargeSection').style.display || $('#chargeSection').style.display==='none'){
           $('#chargeSection').style.display = 'block';
         }
+        showPageLoading(true);
         await onSelectCustomer($('#custSel').value);
+        showPageLoading(false);
       });
 
       // show Add New Card section on demand
       $('#showAddCard').addEventListener('click', ()=>{
         $('#newCardWrap').style.display = 'block';
+        mountCardElement();
       });
     }
 
@@ -335,7 +365,6 @@
       $('#resultMsg').textContent = '';
       selectedCustomer = customers.find(c=>c.id===id) || null;
 
-      // Show slim loading bar while fetching everything
       setProgress(50);
       await refreshRightPanel();
       setProgress(75);
@@ -368,7 +397,7 @@
 
       // If URL has customerId, preselect
       const urlId = new URLSearchParams(location.search).get('customerId');
-      if (urlId) { sel.value = urlId; $('#chargeSection').style.display='block'; await onSelectCustomer(urlId); }
+      if (urlId) { sel.value = urlId; $('#chargeSection').style.display='block'; showPageLoading(true); await onSelectCustomer(urlId); showPageLoading(false); }
     }
 
     async function refreshRightPanel(){
@@ -395,15 +424,25 @@
         listEl.innerHTML = '<div class="muted">No payment methods on file.</div>';
       } else {
         pmData.paymentMethods.forEach(pm=>{
-          const exp = `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`;
+          // Right panel pretty print for both types
+          let left = '', right = '';
+          if (pm.type === 'card'){
+            const exp = `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`;
+            left = `${cap(pm.card.brand)} •••• ${pm.card.last4}` + (pm.id===defaultPmId ? ' <span class="badge default">Default</span>' : '');
+            right = `<small>${exp}</small>`;
+          } else if (pm.type === 'us_bank_account'){
+            const bank = pm.bank || {};
+            const acctType = bank.account_type ? ` (${bank.account_type})` : '';
+            left = `${bank.bank_name || 'Bank Account'} •••• ${bank.last4}${acctType}` +
+                   (pm.id===defaultPmId ? ' <span class="badge default">Default</span>' : '') +
+                   ' <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>';
+            right = `<small>${bank.status==='verified' ? 'Verified bank account' : 'Not verified'}</small>`;
+          }
           const row = document.createElement('div');
           row.className = 'pm';
-          const l = document.createElement('div');
-          l.className = 'meta';
-          l.innerHTML = `${cap(pm.card.brand)} •••• ${pm.card.last4}` +
-                        (pm.id===defaultPmId ? ' <span class="badge default">Default</span>' : '');
-          const r = document.createElement('div'); r.innerHTML = `<small>${exp}</small>`;
-          row.append(l,r);
+          const l = document.createElement('div'); l.className='meta'; l.innerHTML = left;
+          const r = document.createElement('div'); r.innerHTML = right;
+          row.append(l, r);
           listEl.append(row);
         });
       }
@@ -428,107 +467,217 @@
     }
 
     function mountCardElement(){
-      if (cardEl) return; // already mounted
+      if (cardEl) return;
       cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
       cardEl.mount('#new-card');
     }
 
+    // ------- IMPORTANT: shows both Cards and VERIFIED ACH -------
     async function refreshPaymentPickers(){
-    const wrap = $('#pmPicker'); wrap.innerHTML = '';
-    $('#addNewBtnWrap').style.display = 'none';
-    $('#newCardWrap').style.display   = 'none';
-    lastAddedPmId = null;
+      const wrap = $('#pmPicker'); wrap.innerHTML = '';
+      $('#addNewBtnWrap').style.display = 'none';
+      $('#newCardWrap').style.display   = 'none';
+      lastAddedPmId = null;
 
-    const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
-    defaultPmId = data.defaultPaymentMethod || null;
+      const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
+      defaultPmId = data.defaultPaymentMethod || null;
 
-    // Separate by type for pretty labels (we'll show them in one list)
-    const cards = (data.paymentMethods || []).filter(p => p.type === 'card');
-    const banks = (data.paymentMethods || []).filter(p => p.type === 'us_bank_account'); // already verified per function
+      const cards = (data.paymentMethods || []).filter(p => p.type === 'card');
+      const banks = (data.paymentMethods || []).filter(p => p.type === 'us_bank_account'); // already verified
 
-    // NOTHING ON FILE
-    if ((!cards.length) && (!banks.length)){
-      $('#noPmHint').style.display = 'block';
-      // show inline card form automatically
-      $('#newCardWrap').style.display = 'block';
-      mountCardElement();
-      return;
-    }
-    $('#noPmHint').style.display = 'none';
-    $('#addNewBtnWrap').style.display = 'flex';
-
-    // Helper for PM row
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-    // CARD ROWS
-    cards.forEach(pm=>{
-      const id = `pick-${pm.id}`;
-      const label = document.createElement('label');
-      label.className = 'pm';
-      const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
-      const expTxt = pm.card?.exp_month && pm.card?.exp_year
-        ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`
-        : '';
-      label.innerHTML = `
-        <div class="meta">
-          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
-          <span>${cap(pm.card.brand)} •••• ${pm.card.last4}
-            ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
-            ${recentBadge}
-          </span>
-        </div>
-        <small>${expTxt}</small>
-      `;
-      wrap.appendChild(label);
-    });
-
-    // BANK ROWS (ACH) — verified only
-    banks.forEach(pm=>{
-      const id = `pick-${pm.id}`;
-      const info = pm.bank || {};
-      const bankName = info.bank_name || 'Bank Account';
-      const acctType = info.account_type ? ` (${info.account_type})` : '';
-      const verified = info.status === 'verified';
-      const label = document.createElement('label');
-      label.className = 'pm';
-      label.innerHTML = `
-        <div class="meta">
-          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
-          <span>${bankName} •••• ${info.last4}${acctType}
-            ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
-            ${verified ? ' <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>' : ''}
-          </span>
-        </div>
-        <small>${verified ? 'Verified bank account' : 'Not verified'}</small>
-      `;
-      wrap.appendChild(label);
-    });
-
-    // ACH settlement reminder under the picker when a bank option is chosen
-    // (Create or reuse a small hint node)
-    let achHint = document.getElementById('achHint');
-    if (!achHint) {
-      achHint = document.createElement('div');
-      achHint.id = 'achHint';
-      achHint.className = 'muted';
-      achHint.style.marginTop = '.35rem';
-      wrap.parentElement.appendChild(achHint);
-    }
-
-    const setAchHint = () => {
-      const chosen = document.querySelector('input[name="pmPick"]:checked');
-      if (!chosen) { achHint.textContent = ''; return; }
-      const pmChosen = [...cards, ...banks].find(x=>x.id === chosen.value);
-      if (pmChosen?.type === 'us_bank_account') {
-        achHint.textContent = 'Note: ACH debits can take up to 7 business days to settle.';
-      } else {
-        achHint.textContent = '';
+      if ((!cards.length) && (!banks.length)){
+        $('#noPmHint').style.display = 'block';
+        $('#newCardWrap').style.display = 'block';
+        mountCardElement();
+        return;
       }
-    };
-    // Run once & then on change
-    setAchHint();
-    wrap.addEventListener('change', setAchHint, { once:false });
-  }
+      $('#noPmHint').style.display = 'none';
+      $('#addNewBtnWrap').style.display = 'flex';
+
+      // CARD rows
+      cards.forEach(pm=>{
+        const id = `pick-${pm.id}`;
+        const label = document.createElement('label');
+        label.className = 'pm';
+        const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
+        const expTxt = pm.card?.exp_month && pm.card?.exp_year
+          ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`
+          : '';
+        label.innerHTML = `
+          <div class="meta">
+            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+            <span>${cap(pm.card.brand)} •••• ${pm.card.last4}
+              ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
+              ${recentBadge}
+            </span>
+          </div>
+          <small>${expTxt}</small>
+        `;
+        wrap.appendChild(label);
+      });
+
+      // BANK rows (ACH) — verified only
+      banks.forEach(pm=>{
+        const id = `pick-${pm.id}`;
+        const info = pm.bank || {};
+        const bankName = info.bank_name || 'Bank Account';
+        const acctType = info.account_type ? ` (${info.account_type})` : '';
+        const label = document.createElement('label');
+        label.className = 'pm';
+        label.innerHTML = `
+          <div class="meta">
+            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+            <span>${bankName} •••• ${info.last4}${acctType}
+              ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
+              <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>
+            </span>
+          </div>
+          <small>Verified bank account</small>
+        `;
+        wrap.appendChild(label);
+      });
+
+      // ACH settlement reminder under the picker when a bank option is chosen
+      let achHint = document.getElementById('achHint');
+      if (!achHint) {
+        achHint = document.createElement('div');
+        achHint.id = 'achHint';
+        achHint.className = 'muted';
+        achHint.style.marginTop = '.35rem';
+        wrap.parentElement.appendChild(achHint);
+      }
+
+      const setAchHint = () => {
+        const chosen = document.querySelector('input[name="pmPick"]:checked');
+        if (!chosen) { achHint.textContent = ''; return; }
+        const all = [...cards, ...banks];
+        const pmChosen = all.find(x=>x.id === chosen.value);
+        if (pmChosen?.type === 'us_bank_account') {
+          achHint.textContent = 'Note: ACH debits can take up to 7 business days to settle.';
+        } else {
+          achHint.textContent = '';
+        }
+      };
+      setAchHint();
+      wrap.addEventListener('change', setAchHint, { once:false });
+    }
+
+    // -------------- Submit Charge (with ACH notice support) --------------
+    async function submitCharge(e){
+      e.preventDefault();
+      $('#resultMsg').textContent = '';
+
+      if (!selectedCustomer){
+        alert('Please select a client.');
+        return;
+      }
+
+      const amountVal = parseFloat($('#amount').value);
+      if (!amountVal || amountVal <= 0){
+        alert('Enter a valid amount.');
+        return;
+      }
+
+      const desc = resolveDescription();
+      if (!desc){
+        alert('Please choose or enter a description.');
+        return;
+      }
+
+      // Pick a PM, or fall back to creating a one-off card PM from the card element
+      let pmId = getSelectedPmId();
+
+      showOverlay(true);
+      try{
+        if (!pmId){
+          // If no PM selected/available, create one from the card fields shown on the page
+          mountCardElement();
+          const { paymentMethod, error } = await stripe.createPaymentMethod({
+            type:'card',
+            card: cardEl
+          });
+          if (error) throw new Error(error.message);
+          pmId = paymentMethod.id;
+        }
+
+        if (currentWhen === 'now'){
+          // Charge NOW (supports card or ACH automatically on the server)
+          const res = await fetch('/.netlify/functions/outbound-client-charge-now',{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              customerId: selectedCustomer.id,
+              paymentMethodId: pmId,
+              amount: Math.round(amountVal * 100),
+              statementDescriptor: OUTBOUND_DESCRIPTOR,
+              description: desc
+            })
+          }).then(r=>r.json());
+
+          if (res.error) throw new Error(res.error);
+
+          // If server indicates an ACH settlement note, show it
+          if (res.settlement_notice) {
+            $('#resultMsg').textContent = '✅ Charged. ' + res.settlement_notice;
+          } else {
+            $('#resultMsg').textContent = '✅ Charged successfully';
+          }
+
+        } else {
+          // Charge LATER (schedule)
+          const date = $('#chargeDate').value;
+          if (!date){
+            showOverlay(false);
+            alert('Pick a charge date.');
+            return;
+          }
+
+          const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              customerId: selectedCustomer.id,
+              paymentMethodId: pmId,
+              productId: OUTBOUND_PRODUCT_ID,
+              date,
+              description: desc,
+              statementDescriptor: OUTBOUND_DESCRIPTOR
+            })
+          }).then(r=>r.json());
+
+          if (res.error) throw new Error(res.error);
+          $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
+        }
+
+        // Clear inputs that make sense after a successful action
+        $('#amount').value = '';
+        if ($('#descSel').value === '__other__') $('#descOther').value = '';
+
+        await refreshRightPanel();
+      } catch(err){
+        $('#resultMsg').textContent = '❌ ' + (err?.message || String(err));
+      } finally {
+        showOverlay(false);
+      }
+    }
+
+    // ---------- Utilities you already have ----------
+    function getSelectedPmId(){
+      const checked = document.querySelector('input[name="pmPick"]:checked');
+      return checked ? checked.value : null;
+    }
+    function resolveDescription(){
+      if ($('#descSel').value === '__other__'){
+        return $('#descOther').value.trim();
+      }
+      return $('#descSel').value.replace('[MMM, YYYY]', `${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}`);
+    }
+
+    // Mount card Element once
+    document.addEventListener('click', (e)=>{
+      if (e.target && e.target.id === 'saveCard') saveNewCard(e);
+    });
+
     async function saveNewCard(e){
       e.preventDefault();
       if (!selectedCustomer) { alert('Select a client first.'); return; }
@@ -536,19 +685,18 @@
       showOverlay(true);
       try{
         mountCardElement();
-
-        // 1) SetupIntent
+        // SetupIntent
         const { clientSecret, error:siErr } = await fetch('/.netlify/functions/create-setup-intent',{
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ customerId: selectedCustomer.id })
         }).then(r=>r.json());
         if (siErr || !clientSecret) throw new Error(siErr || 'No client secret');
 
-        // 2) Confirm
+        // Confirm
         const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card: cardEl } });
         if (error) throw new Error(error.message);
 
-        // 3) Attach & set default
+        // Attach & set default
         const attach = await fetch('/.netlify/functions/attach-method',{
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ customerId: selectedCustomer.id, paymentMethodId: setupIntent.payment_method, setDefault: true })
@@ -560,132 +708,12 @@
         await refreshRightPanel();
         await refreshPaymentPickers();
         alert('New card saved & set as default. Please choose which card to use for this charge.');
-        // focus the picker
         const radio = document.querySelector(`input[name="pmPick"][value="${lastAddedPmId}"]`);
         if (radio) radio.scrollIntoView({behavior:'smooth', block:'center'});
       }catch(err){
         $('#saveCardMsg').textContent = '❌ ' + (err?.message || err);
       }finally{ showOverlay(false); }
     }
-
-    function getSelectedPmId(){
-      const checked = document.querySelector('input[name="pmPick"]:checked');
-      return checked ? checked.value : null;
-    }
-
-    function resolveDescription(){
-      if ($('#descSel').value === '__other__'){
-        return $('#descOther').value.trim();
-      }
-      // Fill [MMM, YYYY]
-      return $('#descSel').value.replace('[MMM, YYYY]', `${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}`);
-    }
-
-    async function submitCharge(e){
-  e.preventDefault();
-  $('#resultMsg').textContent = '';
-
-  if (!selectedCustomer){
-    alert('Please select a client.');
-    return;
-  }
-
-  const amountVal = parseFloat($('#amount').value);
-  if (!amountVal || amountVal <= 0){
-    alert('Enter a valid amount.');
-    return;
-  }
-
-  const desc = resolveDescription();
-  if (!desc){
-    alert('Please choose or enter a description.');
-    return;
-  }
-
-  // Pick a PM, or fall back to creating a one-off card PM from the card element
-  let pmId = getSelectedPmId();
-
-  showOverlay(true);
-  try{
-    if (!pmId){
-      // If no PM selected/available, create one from the card fields shown on the page
-      mountCardElement();
-      const { paymentMethod, error } = await stripe.createPaymentMethod({
-        type:'card',
-        card: cardEl
-      });
-      if (error) throw new Error(error.message);
-      pmId = paymentMethod.id;
-    }
-
-    if (currentWhen === 'now'){
-      // Charge NOW (supports card or ACH automatically on the server)
-      const res = await fetch('/.netlify/functions/outbound-client-charge-now',{
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          customerId: selectedCustomer.id,
-          paymentMethodId: pmId,
-          amount: Math.round(amountVal * 100),
-          statementDescriptor: OUTBOUND_DESCRIPTOR,
-          description: desc
-        })
-      }).then(r=>r.json());
-
-      if (res.error) throw new Error(res.error);
-
-      // If server indicates an ACH settlement note, show it
-      if (res.settlement_notice) {
-        $('#resultMsg').textContent = '✅ Charged. ' + res.settlement_notice;
-      } else {
-        $('#resultMsg').textContent = '✅ Charged successfully';
-      }
-
-    } else {
-      // Charge LATER (schedule)
-      const date = $('#chargeDate').value;
-      if (!date){
-        showOverlay(false);
-        alert('Pick a charge date.');
-        return;
-      }
-
-      const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          customerId: selectedCustomer.id,
-          paymentMethodId: pmId,
-          productId: OUTBOUND_PRODUCT_ID,
-          date,
-          description: desc,
-          statementDescriptor: OUTBOUND_DESCRIPTOR
-        })
-      }).then(r=>r.json());
-
-      if (res.error) throw new Error(res.error);
-      $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
-    }
-
-    // Clear inputs that make sense after a successful action
-    $('#amount').value = '';
-    if ($('#descSel').value === '__other__') $('#descOther').value = '';
-
-    // Refresh the right-hand panel (PMs & recent payments)
-    await refreshRightPanel();
-
-  } catch(err){
-    $('#resultMsg').textContent = '❌ ' + (err?.message || String(err));
-  } finally {
-    showOverlay(false);
-  }
-}
-
-
-    // attach handler after elements exist
-    document.addEventListener('click', (e)=>{
-      if (e.target && e.target.id === 'saveCard') saveNewCard(e);
-    });
   </script>
 </body>
 </html>
