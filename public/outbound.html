@@ -473,94 +473,99 @@
     }
 
     // ------- IMPORTANT: shows both Cards and VERIFIED ACH -------
-    async function refreshPaymentPickers(){
-      const wrap = $('#pmPicker'); wrap.innerHTML = '';
-      $('#addNewBtnWrap').style.display = 'none';
-      $('#newCardWrap').style.display   = 'none';
-      lastAddedPmId = null;
+  async function refreshPaymentPickers(){
+    const wrap = $('#pmPicker'); wrap.innerHTML = '';
+    $('#addNewBtnWrap').style.display = 'none';
+    $('#newCardWrap').style.display   = 'none';
+    lastAddedPmId = null;
 
-      const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
-      defaultPmId = data.defaultPaymentMethod || null;
+    const data = await fetch(`/.netlify/functions/list-payment-methods?customerId=${selectedCustomer.id}`).then(r=>r.json());
+    defaultPmId = data.defaultPaymentMethod || null;
 
-      const cards = (data.paymentMethods || []).filter(p => p.type === 'card');
-      const banks = (data.paymentMethods || []).filter(p => p.type === 'us_bank_account'); // already verified
+    const pms = data.paymentMethods || [];
+    const cards = pms.filter(p => p.type === 'card');
+    const banks = pms.filter(p => p.type === 'us_bank_account'); // now includes verified & not verified
 
-      if ((!cards.length) && (!banks.length)){
-        $('#noPmHint').style.display = 'block';
-        $('#newCardWrap').style.display = 'block';
-        mountCardElement();
-        return;
-      }
-      $('#noPmHint').style.display = 'none';
-      $('#addNewBtnWrap').style.display = 'flex';
-
-      // CARD rows
-      cards.forEach(pm=>{
-        const id = `pick-${pm.id}`;
-        const label = document.createElement('label');
-        label.className = 'pm';
-        const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
-        const expTxt = pm.card?.exp_month && pm.card?.exp_year
-          ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`
-          : '';
-        label.innerHTML = `
-          <div class="meta">
-            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
-            <span>${cap(pm.card.brand)} •••• ${pm.card.last4}
-              ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
-              ${recentBadge}
-            </span>
-          </div>
-          <small>${expTxt}</small>
-        `;
-        wrap.appendChild(label);
-      });
-
-      // BANK rows (ACH) — verified only
-      banks.forEach(pm=>{
-        const id = `pick-${pm.id}`;
-        const info = pm.bank || {};
-        const bankName = info.bank_name || 'Bank Account';
-        const acctType = info.account_type ? ` (${info.account_type})` : '';
-        const label = document.createElement('label');
-        label.className = 'pm';
-        label.innerHTML = `
-          <div class="meta">
-            <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
-            <span>${bankName} •••• ${info.last4}${acctType}
-              ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
-              <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>
-            </span>
-          </div>
-          <small>Verified bank account</small>
-        `;
-        wrap.appendChild(label);
-      });
-
-      // ACH settlement reminder under the picker when a bank option is chosen
-      let achHint = document.getElementById('achHint');
-      if (!achHint) {
-        achHint = document.createElement('div');
-        achHint.id = 'achHint';
-        achHint.className = 'muted';
-        achHint.style.marginTop = '.35rem';
-        wrap.parentElement.appendChild(achHint);
-      }
-
-      const setAchHint = () => {
-        const chosen = document.querySelector('input[name="pmPick"]:checked');
-        if (!chosen) { achHint.textContent = ''; return; }
-        const all = [...cards, ...banks];
-        const pmChosen = all.find(x=>x.id === chosen.value);
-        if (pmChosen?.type === 'us_bank_account') {
-          achHint.textContent = 'Note: ACH debits can take up to 7 business days to settle.';
-        } else {
-          achHint.textContent = '';
-        }
-      };
-      setAchHint();
-      wrap.addEventListener('change', setAchHint, { once:false });
+    if ((!cards.length) && (!banks.length)){
+      $('#noPmHint').style.display = 'block';
+      $('#newCardWrap').style.display = 'block';
+      mountCardElement();
+      return;
     }
+    $('#noPmHint').style.display = 'none';
+    $('#addNewBtnWrap').style.display = 'flex';
+
+    // Helper
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    // CARD rows
+    cards.forEach(pm=>{
+      const id = `pick-${pm.id}`;
+      const label = document.createElement('label');
+      label.className = 'pm';
+      const recentBadge = (pm.id===lastAddedPmId) ? ' <span class="badge recent">Added Recently</span>' : '';
+      const expTxt = pm.card?.exp_month && pm.card?.exp_year
+        ? `Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`
+        : '';
+      label.innerHTML = `
+        <div class="meta">
+          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} />
+          <span>${(pm.card.brand||'').charAt(0).toUpperCase()+pm.card.brand.slice(1)} •••• ${pm.card.last4}
+            ${pm.id===defaultPmId? ' <span class="badge default">Default</span>': ''}
+            ${recentBadge}
+          </span>
+        </div>
+        <small>${expTxt}</small>
+      `;
+      wrap.appendChild(label);
+    });
+
+    // BANK rows (ACH) — some may be unverified; disable selection for unverified
+    banks.forEach(pm=>{
+      const id = `pick-${pm.id}`;
+      const info = pm.bank || {};
+      const bankName = info.bank_name || 'Bank Account';
+      const acctType = info.account_type ? ` (${info.account_type})` : '';
+      const verified = !!pm.verified;
+
+      const label = document.createElement('label');
+      label.className = 'pm';
+      label.innerHTML = `
+        <div class="meta">
+          <input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${verified ? '' : 'disabled'} ${pm.id===defaultPmId && verified ? 'checked':''} />
+          <span>${bankName} •••• ${info.last4}${acctType}
+            ${pm.id===defaultPmId && verified ? ' <span class="badge default">Default</span>' : ''}
+            <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>
+          </span>
+        </div>
+        <small>${verified ? 'Verified bank account' : 'Not verified — cannot charge'}</small>
+      `;
+      wrap.appendChild(label);
+    });
+
+    // ACH settlement reminder under the picker when a verified bank option is chosen
+    let achHint = document.getElementById('achHint');
+    if (!achHint) {
+      achHint = document.createElement('div');
+      achHint.id = 'achHint';
+      achHint.className = 'muted';
+      achHint.style.marginTop = '.35rem';
+      wrap.parentElement.appendChild(achHint);
+    }
+
+    const setAchHint = () => {
+      const chosen = document.querySelector('input[name="pmPick"]:checked');
+      if (!chosen) { achHint.textContent = ''; return; }
+      const pmChosen = [...cards, ...banks].find(x=>x.id === chosen.value);
+      if (pmChosen?.type === 'us_bank_account' && pmChosen.verified) {
+        achHint.textContent = 'Note: ACH debits can take up to 7 business days to settle.';
+      } else {
+        achHint.textContent = '';
+      }
+    };
+    setAchHint();
+    wrap.addEventListener('change', setAchHint, { once:false });
+  }
 
     // -------------- Submit Charge (with ACH notice support) --------------
     async function submitCharge(e){
