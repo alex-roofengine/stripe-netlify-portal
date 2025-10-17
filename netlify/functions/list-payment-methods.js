@@ -73,6 +73,18 @@ function shapeBankPM(pm, reason) {
   };
 }
 
+// After we’ve built bankMap, “enrich” any entries that are missing status
+for (const [id, pm] of bankMap.entries()) {
+  if (!pm.us_bank_account?.status) {
+    try {
+      const fetched = await stripe.paymentMethods.retrieve(id);
+      if (fetched?.us_bank_account?.status) {
+        bankMap.set(id, fetched);
+      }
+    } catch (e) { /* ignore */ }
+  }
+}
+
 exports.handler = async (event) => {
   try {
     const { customerId, includePmId } = event.queryStringParameters || {};
