@@ -2,6 +2,7 @@
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2020-08-27' });
 
+// Helper to page through all results
 async function listAllPaymentMethods(customer, type) {
   let all = [];
   let starting_after;
@@ -19,6 +20,7 @@ async function listAllPaymentMethods(customer, type) {
   return all;
 }
 
+// Alternate listing API
 async function customersListAllPaymentMethods(customer, type) {
   let all = [];
   let starting_after;
@@ -35,6 +37,7 @@ async function customersListAllPaymentMethods(customer, type) {
   return all;
 }
 
+// Shape card PM
 function shapeCard(pm) {
   return {
     id: pm.id,
@@ -48,9 +51,13 @@ function shapeCard(pm) {
   };
 }
 
+// Shape bank PM (ACH)
 function shapeBankPM(pm, reason) {
-  const status = pm.us_bank_account?.status || '';
-  const verified = status === 'verified';
+  const raw = pm.us_bank_account?.status || '';
+  const status = String(raw).toLowerCase();
+  // Treat all of these as verified variants
+  const verified = ['verified', 'validated', 'verification_succeeded'].includes(status);
+
   return {
     id: pm.id,
     type: 'us_bank_account',
@@ -59,7 +66,7 @@ function shapeBankPM(pm, reason) {
     bank: {
       bank_name: pm.us_bank_account?.bank_name || 'Bank Account',
       last4: pm.us_bank_account?.last4 || '',
-      account_type: pm.us_bank_account?.account_type || '', // checking | savings
+      account_type: pm.us_bank_account?.account_type || '',
       status
     },
     _reason: reason || undefined
@@ -78,9 +85,9 @@ exports.handler = async (event) => {
       expand: ['invoice_settings.default_payment_method'],
     });
     const defaultPMObj = customer.invoice_settings?.default_payment_method || null;
-    const defaultPmId  = defaultPMObj?.id || null;
+    const defaultPmId = defaultPMObj?.id || null;
 
-    // List via BOTH APIs for redundancy
+    // List via both APIs
     const [cardsA, banksA, cardsB, banksB] = await Promise.all([
       listAllPaymentMethods(customerId, 'card'),
       listAllPaymentMethods(customerId, 'us_bank_account'),
@@ -88,17 +95,17 @@ exports.handler = async (event) => {
       customersListAllPaymentMethods(customerId, 'us_bank_account'),
     ]);
 
-    // De-dup cards
+    // Deduplicate cards
     const cardMap = new Map();
     [...(cardsA||[]), ...(cardsB||[])].forEach(pm => { if (!cardMap.has(pm.id)) cardMap.set(pm.id, pm); });
 
-    // De-dup banks
+    // Deduplicate banks
     const bankMap = new Map();
     [...(banksA||[]), ...(banksB||[])].forEach(pm => {
       if (pm.type === 'us_bank_account' && !bankMap.has(pm.id)) bankMap.set(pm.id, pm);
     });
 
-    // Merge default PM if missing (even if not verified)
+    // Merge default PM if not listed
     if (defaultPMObj && defaultPMObj.object === 'payment_method' && defaultPMObj.type === 'us_bank_account') {
       if (!bankMap.has(defaultPMObj.id)) {
         bankMap.set(defaultPMObj.id, defaultPMObj);
@@ -106,7 +113,7 @@ exports.handler = async (event) => {
       }
     }
 
-    // Force include a specific PM for debugging if requested
+    // Force include specific PM if requested
     if (includePmId) {
       try {
         const forced = await stripe.paymentMethods.retrieve(includePmId);
@@ -126,10 +133,19 @@ exports.handler = async (event) => {
       }
     }
 
+    // Enrich missing ACH PMs with fresh data if status is missing
+    for (const [id, pm] of bankMap.entries()) {
+      if (!pm.us_bank_account?.status) {
+        try {
+          const fetched = await stripe.paymentMethods.retrieve(id);
+          if (fetched?.us_bank_account?.status) bankMap.set(id, fetched);
+        } catch (e) { /* ignore */ }
+      }
+    }
+
     const cards = Array.from(cardMap.values()).map(shapeCard);
     const banks = Array.from(bankMap.values()).map(pm => shapeBankPM(pm, 'listed_or_merged'));
 
-    // Build debug status list so you can see what Stripe returns
     const bankStatuses = Array.from(bankMap.values()).map(pm => ({
       id: pm.id,
       status: pm.us_bank_account?.status || 'unknown'
