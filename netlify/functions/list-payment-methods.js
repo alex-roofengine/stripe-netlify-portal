@@ -54,8 +54,8 @@ function shapeCard(pm) {
 // Shape bank PM (ACH)
 function shapeBankPM(pm, reason) {
   const raw = pm.us_bank_account?.status || '';
-  const status = String(raw).toLowerCase();
-  // Treat all of these as verified variants
+  const status = String(raw).toLowerCase(); // normalize
+  // Treat common “verified” variants as verified:
   const verified = ['verified', 'validated', 'verification_succeeded'].includes(status);
 
   return {
@@ -67,7 +67,7 @@ function shapeBankPM(pm, reason) {
       bank_name: pm.us_bank_account?.bank_name || 'Bank Account',
       last4: pm.us_bank_account?.last4 || '',
       account_type: pm.us_bank_account?.account_type || '',
-      status
+      status // keep the raw-ish status for debugging/UI text
     },
     _reason: reason || undefined
   };
