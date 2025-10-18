@@ -1,8 +1,15 @@
 // netlify/functions/outbound-client-charge-later.js
-// Diagnostic-enhanced 'Charge Later' endpoint.
-// Creates a PaymentIntent (NOT confirmed) that you confirm later via confirm-payment-intent.js
+// Charge Later (create PI without confirming) + robust parsing + CORS/OPTIONS support.
+
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Cache-Control': 'no-store'
+};
 
 function parseBody(event){
   const ct = (event.headers['content-type'] || event.headers['Content-Type'] || '').toLowerCase();
@@ -10,25 +17,19 @@ function parseBody(event){
   if (event.isBase64Encoded) {
     try { bodyStr = Buffer.from(bodyStr, 'base64').toString('utf8'); } catch {}
   }
-  // JSON
   if (ct.includes('application/json')) {
     try { return JSON.parse(bodyStr || '{}'); } catch (e) { return { __parseError: 'invalid_json', raw: bodyStr }; }
   }
-  // urlencoded
   if (ct.includes('application/x-www-form-urlencoded')) {
     const params = new URLSearchParams(bodyStr);
-    const obj = {};
-    for (const [k,v] of params.entries()) obj[k] = v;
-    return obj;
+    const obj = {}; for (const [k,v] of params.entries()) obj[k] = v; return obj;
   }
-  // Fallback
   try { return JSON.parse(bodyStr || '{}'); } catch { return { __raw: bodyStr }; }
 }
 
 function cleanAmount(a){
   if (a === undefined || a === null) return null;
   if (typeof a === 'number') return a;
-  // strip $, commas, spaces
   const s = String(a).trim().replace(/[$,\s]/g, '');
   if (!s) return null;
   const num = Number(s);
@@ -36,15 +37,23 @@ function cleanAmount(a){
 }
 
 exports.handler = async (event) => {
-  const reqId = (event.headers['x-request-id'] || event.headers['x-nf-request-id'] || `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+  const reqId = event.headers['x-request-id'] || event.headers['x-nf-request-id'] || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  // 1) Handle preflight (OPTIONS)
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers: CORS, body: '' };
+  }
+
   try {
+    // 2) Enforce POST for real requests
     if (event.httpMethod !== 'POST') {
-      return { statusCode: 405, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+      return { statusCode: 405, headers: CORS, body: JSON.stringify({ error: 'Method Not Allowed', method: event.httpMethod }) };
     }
 
     const body = parseBody(event);
-    const { customerId, paymentMethodId, currency = 'usd' } = body || {};
+    const { customerId, paymentMethodId, currency = 'usd', description, statementDescriptor } = body || {};
     const amountInDollars = cleanAmount(body.amount ?? body.total ?? body.value);
+
     const missing = [];
     if (!customerId) missing.push('customerId');
     if (!paymentMethodId) missing.push('paymentMethodId');
@@ -53,7 +62,7 @@ exports.handler = async (event) => {
     if (missing.length) {
       return {
         statusCode: 400,
-        headers: { 'Cache-Control': 'no-store' },
+        headers: CORS,
         body: JSON.stringify({
           error: 'Missing required fields',
           missing,
@@ -62,7 +71,7 @@ exports.handler = async (event) => {
             contentType: event.headers['content-type'] || event.headers['Content-Type'] || null,
             customerId: !!customerId,
             paymentMethodId: !!paymentMethodId,
-            amountRaw: body.amount ?? body.total ?? body.value,
+            amountRaw: body.amount ?? body.total ?? body.value
           }
         })
       };
@@ -70,14 +79,10 @@ exports.handler = async (event) => {
 
     const amountCents = Math.round(Number(amountInDollars) * 100);
     if (!Number.isFinite(amountCents) || amountCents <= 0) {
-      return {
-        statusCode: 400,
-        headers: { 'Cache-Control': 'no-store' },
-        body: JSON.stringify({ error: 'Invalid amount', amountInDollars, amountCents })
-      };
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'Invalid amount', amountInDollars, amountCents }) };
     }
 
-    // Retrieve PM; ensure it's attached to the given customer (common gotcha)
+    // Ensure PM is attached to this customer (prevents later surprises)
     const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
     if (pm.customer && pm.customer !== customerId) {
       await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
@@ -87,23 +92,22 @@ exports.handler = async (event) => {
 
     const pmType = pm.type === 'us_bank_account' ? 'us_bank_account' : 'card';
 
-    // Create PI to confirm later
     const intent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency,
       customer: customerId,
       payment_method: paymentMethodId,
-      confirm: false,                // key for "charge later"
+      confirm: false,                // Charge Later
       off_session: true,
       setup_future_usage: 'off_session',
       payment_method_types: [pmType],
-      description: body.description || undefined,
-      statement_descriptor: body.statementDescriptor || undefined,
+      description: description || undefined,
+      statement_descriptor: statementDescriptor || undefined
     }, { idempotencyKey: `charge-later_${reqId}` });
 
-    return { statusCode: 200, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ ok: true, paymentIntent: intent }) };
+    return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true, paymentIntent: intent }) };
   } catch (err) {
     console.error('outbound-client-charge-later error:', { reqId, message: err.message, type: err.type, code: err.code });
-    return { statusCode: err.statusCode || 500, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: err.message, code: err.code, type: err.type, reqId }) };
+    return { statusCode: err.statusCode || 500, headers: CORS, body: JSON.stringify({ error: err.message, code: err.code, type: err.type, reqId }) };
   }
 };
