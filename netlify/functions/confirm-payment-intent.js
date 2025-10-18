@@ -14,10 +14,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing paymentIntentId' }) };
     }
 
-    const intent = await stripe.paymentIntents.confirm(paymentIntentId, {
-      off_session: !!offSession,
-    });
-
+    const intent = await stripe.paymentIntents.confirm(paymentIntentId, { off_session: !!offSession });
     return { statusCode: 200, body: JSON.stringify({ paymentIntent: intent }) };
   } catch (err) {
     console.error('confirm-payment-intent error:', err);
