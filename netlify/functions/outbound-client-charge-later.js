@@ -1,5 +1,6 @@
 // netlify/functions/outbound-client-charge-later.js
 // Diagnostic-enhanced 'Charge Later' endpoint.
+// Creates a PaymentIntent (NOT confirmed) that you confirm later via confirm-payment-intent.js
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
@@ -9,22 +10,26 @@ function parseBody(event){
   if (event.isBase64Encoded) {
     try { bodyStr = Buffer.from(bodyStr, 'base64').toString('utf8'); } catch {}
   }
+  // JSON
   if (ct.includes('application/json')) {
     try { return JSON.parse(bodyStr || '{}'); } catch (e) { return { __parseError: 'invalid_json', raw: bodyStr }; }
   }
+  // urlencoded
   if (ct.includes('application/x-www-form-urlencoded')) {
     const params = new URLSearchParams(bodyStr);
     const obj = {};
     for (const [k,v] of params.entries()) obj[k] = v;
     return obj;
   }
+  // Fallback
   try { return JSON.parse(bodyStr || '{}'); } catch { return { __raw: bodyStr }; }
 }
 
 function cleanAmount(a){
   if (a === undefined || a === null) return null;
   if (typeof a === 'number') return a;
-  const s = String(a).trim().replace(/[$,\s,]/g, '');
+  // strip $, commas, spaces
+  const s = String(a).trim().replace(/[$,\s]/g, '');
   if (!s) return null;
   const num = Number(s);
   return Number.isFinite(num) ? num : null;
@@ -36,6 +41,7 @@ exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
       return { statusCode: 405, headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
+
     const body = parseBody(event);
     const { customerId, paymentMethodId, currency = 'usd' } = body || {};
     const amountInDollars = cleanAmount(body.amount ?? body.total ?? body.value);
@@ -71,7 +77,7 @@ exports.handler = async (event) => {
       };
     }
 
-    // Retrieve and ensure PM attached to customer
+    // Retrieve PM; ensure it's attached to the given customer (common gotcha)
     const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
     if (pm.customer && pm.customer !== customerId) {
       await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
@@ -81,12 +87,13 @@ exports.handler = async (event) => {
 
     const pmType = pm.type === 'us_bank_account' ? 'us_bank_account' : 'card';
 
+    // Create PI to confirm later
     const intent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency,
       customer: customerId,
       payment_method: paymentMethodId,
-      confirm: false,
+      confirm: false,                // key for "charge later"
       off_session: true,
       setup_future_usage: 'off_session',
       payment_method_types: [pmType],
