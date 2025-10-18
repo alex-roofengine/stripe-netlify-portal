@@ -742,5 +742,130 @@
     }
   </script>
   <!-- NOTE: No external /js/outbound-submit.js to prevent conflicting handlers -->
+<script>
+/* === Customers loader hard-fix: robust fetch + timeout + retry === */
+(function () {
+  const $ = s => document.querySelector(s);
+
+  // tiny timeout wrapper
+  function withTimeout(promise, ms, label='request') {
+    let t; return Promise.race([
+      promise,
+      new Promise((_, rej) => t = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms))
+    ]).finally(() => clearTimeout(t));
+  }
+
+  async function fetchJsonNoStore(url, label) {
+    const res = await withTimeout(fetch(url, { cache: 'no-store' }), 10000, label || url);
+    const text = await res.text();
+    let data; try { data = JSON.parse(text); } catch {
+      throw new Error(`${label || url} returned non-JSON: ${text.slice(0,200)}`);
+    }
+    if (!res.ok) {
+      const msg = (data && (data.error || data.message)) || `${res.status} ${res.statusText}`;
+      throw new Error(`${label || url} failed: ${msg}`);
+    }
+    return data;
+  }
+
+  // Normalize various shapes -> array of customers
+  function normalizeCustomers(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.customers)) return payload.customers;
+    if (payload && Array.isArray(payload.data)) return payload.data; // just in case
+    return [];
+  }
+
+  // Show an inline error + retry
+  function showCustomerError(msg) {
+    const sel = $('#custSel');
+    if (sel) {
+      sel.innerHTML = `<option value="" disabled selected>Failed to load customers — ${msg}</option>`;
+    }
+    const help = $('#selHelp');
+    if (help) {
+      help.innerHTML = `${msg} <button id="retryLoad" class="link-btn" style="margin-left:.5rem">Retry</button>`;
+      const b = $('#retryLoad');
+      if (b) b.onclick = () => {
+        help.textContent = 'Retrying…';
+        window.loadCustomersAndFill?.();
+      };
+    }
+  }
+
+  // Hard override: replace your loader with a robust one
+  window.loadCustomersAndFill = async function loadCustomersAndFill() {
+    try {
+      // Try primary endpoint, then fallback (if you ever rename)
+      let payload;
+      try {
+        payload = await fetchJsonNoStore('/.netlify/functions/list-customers', 'list-customers');
+      } catch (e1) {
+        console.warn('[fallback] list-customers failed:', e1);
+        // If you have an alternate endpoint name, add it here:
+        payload = await fetchJsonNoStore('/.netlify/functions/customers-list', 'customers-list');
+      }
+
+      const customers = normalizeCustomers(payload);
+      console.log('[customers] loaded', { count: customers.length, sample: customers[0] });
+
+      if (!customers.length) {
+        showCustomerError('no customers found');
+        return;
+      }
+
+      // Fill <select>
+      const sel = $('#custSel');
+      if (!sel) return;
+
+      sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
+      // Prefer “outbound” clients first if the payload marks them, else show all
+      const outs = customers.filter(c => c.metadata && c.metadata.client_type === 'outbound');
+      const list = outs.length ? outs : customers;
+
+      // Simple sort: newest first, then A→Z
+      const newest = list.slice().sort((a,b)=>(b.created||0)-(a.created||0));
+      const top = newest[0] ? [newest[0]] : [];
+      const rest = list.filter(c=>!top.find(t=>t.id===c.id))
+                       .sort((a,b)=> ((a.name||a.email||'').toLowerCase()).localeCompare((b.name||b.email||'').toLowerCase()));
+      const final = [...top, ...rest];
+
+      final.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name || c.email || c.id;
+        sel.appendChild(opt);
+      });
+
+      // If URL has customerId, preselect + trigger downstream
+      const urlId = new URLSearchParams(location.search).get('customerId');
+      if (urlId && final.find(x => x.id === urlId)) {
+        sel.value = urlId;
+        const cs = document.getElementById('chargeSection');
+        if (cs) cs.style.display = 'block';
+        if (window.onSelectCustomer) await window.onSelectCustomer(urlId);
+      }
+    } catch (err) {
+      console.error('[loadCustomersAndFill] error:', err);
+      showCustomerError(err.message || 'unknown error');
+    }
+  };
+
+  // Safety net: if still “Loading customers…” after 6s, show a retry link
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      try {
+        const sel = document.getElementById('custSel');
+        if (!sel) return;
+        const selected = sel.options && sel.options[sel.selectedIndex];
+        const stuck = selected && /Loading customers/i.test(selected.textContent || '');
+        if (stuck) showCustomerError('request took too long');
+      } catch {}
+    }, 6000);
+  });
+})();
+</script>
+
+  
 </body>
 </html>
