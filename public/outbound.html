@@ -599,7 +599,7 @@
             body: JSON.stringify({
               customerId: selectedCustomer.id,
               paymentMethodId: pmId,
-              amount: Math.round(amountVal * 100),
+              amount: Math.round(amountVal * 100),   // cents (charge-now endpoint expects cents in your codebase)
               statementDescriptor: OUTBOUND_DESCRIPTOR,
               description: desc
             })
@@ -615,6 +615,10 @@
             showOverlay(false);
             return;
           }
+          const time = '09:00';
+          let timezone = 'UTC';
+          try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch {}
+
           const res = await fetch('/.netlify/functions/outbound-client-charge-later',{
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
@@ -622,7 +626,10 @@
               customerId: selectedCustomer.id,
               paymentMethodId: pmId,
               productId: OUTBOUND_PRODUCT_ID,
+              amount: amountVal,                    // ← NOW INCLUDED (dollars)
               date,
+              time,
+              timezone,
               description: desc,
               statementDescriptor: OUTBOUND_DESCRIPTOR
             })
@@ -692,6 +699,6 @@
       }finally{ showOverlay(false); }
     }
   </script>
-  <script src="/js/outbound-submit.js"></script>
+  <!-- NOTE: Removed external /js/outbound-submit.js to avoid conflicting handlers -->
 </body>
 </html>
