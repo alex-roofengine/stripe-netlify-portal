@@ -2,23 +2,16 @@
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
-// Build objects compatible with BOTH new (normalized) and existing frontend (nested) shapes
+// Build objects compatible with both normalized API and existing UI (nested)
 function shapeCard(pm){
   const card = pm.card || {};
-  const shaped = {
+  return {
     id: pm.id,
     type: 'card',
-    // expected nested card object for UI
-    card: {
-      brand: card.brand || null,
-      last4: card.last4 || null,
-      exp_month: card.exp_month || null,
-      exp_year: card.exp_year || null,
-    },
+    card: { brand: card.brand || null, last4: card.last4 || null, exp_month: card.exp_month || null, exp_year: card.exp_year || null },
     billing_details: pm.billing_details || {},
     livemode: pm.livemode,
     created: pm.created,
-    // normalized aliases
     source_family: 'payment_method',
     brand: card.brand || null,
     last4: card.last4 || null,
@@ -26,39 +19,32 @@ function shapeCard(pm){
     exp_year: card.exp_year || null,
     verified: true,
   };
-  return shaped;
 }
 
 function shapeBank(pm){
   const bank = pm.us_bank_account || {};
-  const shaped = {
+  return {
     id: pm.id,
     type: 'us_bank_account',
-    // expected nested bank object for UI
     bank: {
       bank_name: bank.bank_name || null,
       last4: bank.last4 || null,
       account_type: bank.account_type || null,
-      status: bank.status || null, // 'new' | 'validated' | 'verified' | 'verification_failed' | 'instant_verified'
+      status: bank.status || null, // new | validated | verified | verification_failed | instant_verified
     },
     billing_details: pm.billing_details || {},
     livemode: pm.livemode,
     created: pm.created,
-    // normalized aliases
     source_family: 'payment_method',
     bank_name: bank.bank_name || null,
     last4: bank.last4 || null,
-    account_holder_type: bank.account_holder_type || null,
-    routing_number: bank.routing_number || null,
     status: bank.status || null,
     verified: ['verified','instant_verified'].includes(bank.status),
   };
-  return shaped;
 }
 
-// legacy customer bank sources (if any)
 function shapeLegacyBank(source, customerId){
-  const shaped = {
+  return {
     id: source.id,
     type: 'us_bank_account', // present as ACH for UI consistency
     bank: {
@@ -77,7 +63,6 @@ function shapeLegacyBank(source, customerId){
     verified: source.status === 'verified',
     customer: source.customer || customerId,
   };
-  return shaped;
 }
 
 exports.handler = async (event) => {
@@ -87,28 +72,24 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId' }) };
     }
 
-    // Fetch customer to read defaults and maybe legacy sources
     const customer = await stripe.customers.retrieve(customerId);
 
-    // New PMs
     const [cardsA, banksA] = await Promise.all([
       stripe.paymentMethods.list({ customer: customerId, type: 'card' }),
       stripe.paymentMethods.list({ customer: customerId, type: 'us_bank_account' }),
     ]);
 
-    // Legacy bank sources
     const legacyBanks = Array.isArray(customer.sources?.data)
       ? customer.sources.data.filter(s => s.object === 'bank_account')
       : [];
 
-    // Shape all methods
     const shaped = [
       ...cardsA.data.map(shapeCard),
       ...banksA.data.map(shapeBank),
       ...legacyBanks.map(s => shapeLegacyBank(s, customerId)),
     ];
 
-    // Sort: verified first, then card before bank for display
+    // verified first; keep ALL methods (default and non-default)
     shaped.sort((a,b)=>{
       const av = a.verified ? 0 : 1;
       const bv = b.verified ? 0 : 1;
@@ -117,18 +98,13 @@ exports.handler = async (event) => {
       return a.type === 'card' ? -1 : 1;
     });
 
-    // Expose BOTH old and new keys so either frontend works
     const response = {
-      // new keys from earlier patches
+      // normalized
       customerId,
       default_source: customer.default_source || null,
       payment_methods: shaped,
-      counts: {
-        cards: cardsA.data.length,
-        banks: banksA.data.length,
-        legacy_banks: legacyBanks.length,
-      },
-      // compatibility keys for existing outbound.html
+      counts: { cards: cardsA.data.length, banks: banksA.data.length, legacy_banks: legacyBanks.length },
+      // legacy camelCase + nested objects for your existing UI
       defaultPaymentMethod: customer.invoice_settings?.default_payment_method || null,
       paymentMethods: shaped,
     };
