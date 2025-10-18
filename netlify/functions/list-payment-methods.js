@@ -2,7 +2,6 @@
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
-// Build objects compatible with both normalized API and existing UI (nested)
 function shapeCard(pm){
   const card = pm.card || {};
   return {
@@ -26,12 +25,7 @@ function shapeBank(pm){
   return {
     id: pm.id,
     type: 'us_bank_account',
-    bank: {
-      bank_name: bank.bank_name || null,
-      last4: bank.last4 || null,
-      account_type: bank.account_type || null,
-      status: bank.status || null, // new | validated | verified | verification_failed | instant_verified
-    },
+    bank: { bank_name: bank.bank_name || null, last4: bank.last4 || null, account_type: bank.account_type || null, status: bank.status || null },
     billing_details: pm.billing_details || {},
     livemode: pm.livemode,
     created: pm.created,
@@ -46,13 +40,8 @@ function shapeBank(pm){
 function shapeLegacyBank(source, customerId){
   return {
     id: source.id,
-    type: 'us_bank_account', // present as ACH for UI consistency
-    bank: {
-      bank_name: source.bank_name || null,
-      last4: source.last4 || null,
-      account_type: source.account_type || null,
-      status: source.status || null,
-    },
+    type: 'us_bank_account',
+    bank: { bank_name: source.bank_name || null, last4: source.last4 || null, account_type: source.account_type || null, status: source.status || null },
     billing_details: { name: source.account_holder_name || null },
     livemode: source.livemode,
     created: source.created,
@@ -73,12 +62,10 @@ exports.handler = async (event) => {
     }
 
     const customer = await stripe.customers.retrieve(customerId);
-
     const [cardsA, banksA] = await Promise.all([
       stripe.paymentMethods.list({ customer: customerId, type: 'card' }),
       stripe.paymentMethods.list({ customer: customerId, type: 'us_bank_account' }),
     ]);
-
     const legacyBanks = Array.isArray(customer.sources?.data)
       ? customer.sources.data.filter(s => s.object === 'bank_account')
       : [];
@@ -89,7 +76,6 @@ exports.handler = async (event) => {
       ...legacyBanks.map(s => shapeLegacyBank(s, customerId)),
     ];
 
-    // verified first; keep ALL methods (default and non-default)
     shaped.sort((a,b)=>{
       const av = a.verified ? 0 : 1;
       const bv = b.verified ? 0 : 1;
@@ -104,7 +90,7 @@ exports.handler = async (event) => {
       default_source: customer.default_source || null,
       payment_methods: shaped,
       counts: { cards: cardsA.data.length, banks: banksA.data.length, legacy_banks: legacyBanks.length },
-      // legacy camelCase + nested objects for your existing UI
+      // legacy camelCase + nested objects your UI expects
       defaultPaymentMethod: customer.invoice_settings?.default_payment_method || null,
       paymentMethods: shaped,
     };
