@@ -1,5 +1,4 @@
 // netlify/functions/confirm-payment-intent.js
-// Confirms a previously created PaymentIntent by ID (for 'charge later' flow).
 const Stripe = require('stripe');
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
