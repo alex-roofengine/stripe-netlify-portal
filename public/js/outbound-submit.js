@@ -5,53 +5,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function currentWhen() {
     const active = $$('.pill[data-role="when"]').find(p => p.getAttribute('data-active') === 'true');
-    return active ? active.getAttribute('data-val') : 'now';
-    // expected values: 'now' | 'later'
+    return active ? active.getAttribute('data-val') : 'now'; // 'now' | 'later'
+  }
+
+  function tzGuess() {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
   }
 
   async function postJSON(url, body) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    const text = await res.text();    // capture even non-JSON errors
-    let data = {};
-    try { data = JSON.parse(text); } catch {}
-    if (!res.ok) {
-      console.error('Request failed', res.status, text);
-      throw new Error(data.error || `${res.status} ${res.statusText}`);
-    }
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+    const text = await res.text();
+    let data = {}; try { data = JSON.parse(text); } catch {}
+    if (!res.ok) throw new Error(data.error || (res.status + ' ' + res.statusText));
     return data;
   }
 
   const submitBtn = document.getElementById('submit');
   if (submitBtn) {
-    // Ensure it is NOT a native form submit
     submitBtn.setAttribute('type', 'button');
-
     submitBtn.addEventListener('click', async (e) => {
-      e.preventDefault(); // extra safety
+      e.preventDefault();
 
-      const selectedCustomerId = window.selectedCustomer?.id || document.getElementById('customerId')?.value;
+      const selectedCustomerId = window.selectedCustomer?.id || $('#customerId')?.value;
       const chosen = document.querySelector('input[name="pmPick"]:checked');
-      const amount = document.getElementById('amount')?.value;
-      const description = document.getElementById('desc')?.value || '';
-      const statementDescriptor = document.getElementById('statementDescriptor')?.value || '';
+      const amount = $('#amount')?.value; // dollars, e.g. "2500" for $2,500
+      const description = $('#desc')?.value || '';
+      const statementDescriptor = $('#statementDescriptor')?.value || '';
+      const when = currentWhen();
+      const date = $('#charge-date')?.value || $('#date')?.value || ''; // ensure your date input has id="charge-date"
+      const time = $('#charge-time')?.value || '09:00'; // optional time input (HH:mm)
+      const timezone = tzGuess();
 
       if (!selectedCustomerId) return alert('Select a client first.');
       if (!chosen) return alert('Pick a payment method first.');
-      if (!amount || Number(amount) <= 0) return alert('Enter a valid amount.');
+      if (when === 'now' && (!amount || Number(amount) <= 0)) return alert('Enter a valid amount.');
+      if (when === 'later' && !date) return alert('Pick a charge date.');
 
       const payload = {
         customerId: selectedCustomerId,
         paymentMethodId: chosen.value,
-        amount,
-        description,
-        statementDescriptor
+        amount, description, statementDescriptor,
+        date, time, timezone
       };
 
-      const when = currentWhen();
       try {
         if (when === 'later') {
           const r = await postJSON('/.netlify/functions/outbound-client-charge-later', payload);
@@ -61,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
           alert('Charged successfully: ' + r.paymentIntent.id);
         }
       } catch (err) {
+        console.error(err);
         alert(err.message || 'Request failed');
       }
     });
