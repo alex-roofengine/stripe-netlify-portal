@@ -15,7 +15,7 @@ exports.handler = async (event) => {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId, paymentMethodId, or amount' }) };
     }
 
-    const amt = Math.round(Number(amount) * 100);
+    const amt = Math.round(Number(String(amount).replace(/[$,\s]/g, '')) * 100);
     if (!Number.isFinite(amt) || amt <= 0) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Invalid amount' }) };
     }
