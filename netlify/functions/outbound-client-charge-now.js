@@ -1,57 +1,48 @@
 // netlify/functions/outbound-client-charge-now.js
+// Charge immediately using a specific payment method (card or verified us_bank_account)
 const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2020-08-27' });
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
 exports.handler = async (event) => {
   try {
-    const { customerId, paymentMethodId, amount, statementDescriptor, description } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || "{}");
+    const { customerId, paymentMethodId, amount, currency = 'usd', description, statementDescriptor } = body;
 
     if (!customerId || !paymentMethodId || !amount) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing required fields' }) };
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId, paymentMethodId, or amount' }) };
     }
 
-    // Retrieve PM to know its type
-    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    // amounts must be in cents
+    const amt = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid amount' }) };
+    }
 
-    let payment_method_types = [];
-    if (pm.type === 'card') {
-      payment_method_types = ['card'];
-    } else if (pm.type === 'us_bank_account') {
-      // You should only allow verified us_bank_account from the UI, which we do in list-payment-methods
-      payment_method_types = ['us_bank_account'];
-    } else {
-      return { statusCode: 400, body: JSON.stringify({ error: `Unsupported payment method type: ${pm.type}` }) };
+    // Ensure PM exists and check ACH status
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    if (pm.type === 'us_bank_account') {
+      const status = pm.us_bank_account?.status;
+      if (!['verified', 'instant_verified'].includes(status)) {
+        return { statusCode: 400, body: JSON.stringify({ error: `Bank account not verified (status: ${status})` }) };
+      }
     }
 
     const intent = await stripe.paymentIntents.create({
-      amount,
-      currency: 'usd',
+      amount: amt,
+      currency,
       customer: customerId,
       payment_method: paymentMethodId,
-      payment_method_types,
       confirm: true,
       off_session: true,
       description: description || undefined,
-      // Note: statement_descriptor is ignored for ACH at bank level, but allowed for card
       statement_descriptor: statementDescriptor || undefined,
+      payment_method_types: pm.type === 'us_bank_account' ? ['us_bank_account'] : ['card'],
+      setup_future_usage: 'off_session',
     });
 
-    const isAch = payment_method_types[0] === 'us_bank_account';
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        payment_intent: intent,
-        settlement_notice: isAch
-          ? 'ACH debits can take up to 7 business days to settle and may show as processing until then.'
-          : undefined
-      })
-    };
+    return { statusCode: 200, body: JSON.stringify({ paymentIntent: intent }) };
   } catch (err) {
     console.error('outbound-client-charge-now error:', err);
-
-    // Bubble up Stripe error message if present
-    const msg = err?.raw?.message || err.message || 'Charge failed';
-    return { statusCode: 400, body: JSON.stringify({ error: msg }) };
+    return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message }) };
   }
 };

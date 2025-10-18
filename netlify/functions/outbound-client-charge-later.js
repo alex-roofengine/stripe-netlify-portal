@@ -1,81 +1,42 @@
 // netlify/functions/outbound-client-charge-later.js
+// Create an off-session PaymentIntent that you can confirm when you're ready (charge later workflow).
 const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2023-10-16',
-});
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
 exports.handler = async (event) => {
   try {
-    const {
-      customerId,
-      paymentMethodId,
-      amount,               // number in dollars
-      currency = 'usd',
-      date,                 // YYYY-MM-DD
-      description,          // required
-      productId,            // e.g. prod_TC1NUvIsUykBKs
-    } = JSON.parse(event.body || '{}');
+    const body = JSON.parse(event.body || "{}");
+    const { customerId, paymentMethodId, amount, currency = 'usd', description, statementDescriptor } = body;
 
-    if (!customerId || !paymentMethodId || !amount || !date || !description || !productId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields' }),
-      };
+    if (!customerId || !paymentMethodId || !amount) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId, paymentMethodId, or amount' }) };
     }
 
-    // Attach & set default
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId }).catch(() => {});
-    await stripe.customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId },
-    });
-
-    // Convert date to 9:00AM America/New_York -> unix seconds
-    const target = new Date(`${date}T09:00:00-04:00`); // handles EDT; for EST months Stripe will still accept
-    const trialEnd = Math.floor(target.getTime() / 1000);
-    const now = Math.floor(Date.now() / 1000);
-    if (trialEnd <= now + 300) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Scheduled date must be at least 5 minutes in the future' }),
-      };
+    const amt = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid amount' }) };
     }
 
-    // Create a price inline so you can pass any amount
-    const subscription = await stripe.subscriptions.create({
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    const pmTypes = pm.type === 'us_bank_account' ? ['us_bank_account'] : ['card'];
+
+    const intent = await stripe.paymentIntents.create({
+      amount: amt,
+      currency,
       customer: customerId,
-      default_payment_method: paymentMethodId,
-      collection_method: 'charge_automatically',
-      proration_behavior: 'none',
-      trial_end: trialEnd,
-      items: [
-        {
-          price_data: {
-            currency,
-            unit_amount: Math.round(Number(amount) * 100),
-            product: productId,
-            recurring: { interval: 'month' }, // needed by subscription API; we cancel immediately below
-          },
-        },
-      ],
-      // Ensure this reads properly on the charge
-      payment_settings: {
-        statement_descriptor: 'ROOFENGINE OUTBOUND',
-      },
-      description,
-      metadata: {
-        description,
-        origin: 'outbound-later',
-      },
-      // Cancel after the first invoice finalizes so it acts like a "one-shot"
-      cancel_at: trialEnd + 60,
+      payment_method: paymentMethodId,
+      // Do NOT confirm yet; store for later
+      confirm: false,
+      capture_method: 'automatic', // default
+      description: description || undefined,
+      statement_descriptor: statementDescriptor || undefined,
+      payment_method_types: pmTypes,
+      setup_future_usage: 'off_session',
     });
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ subscription }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ paymentIntent: intent }) };
   } catch (err) {
     console.error('outbound-client-charge-later error:', err);
-    return { statusCode: 400, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message }) };
   }
 };

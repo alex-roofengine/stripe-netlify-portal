@@ -1,60 +1,45 @@
 // netlify/functions/charge-now.js
 const Stripe = require('stripe');
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2020-08-27',
-});
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-10-16' });
 
 exports.handler = async (event) => {
   try {
-    const { customerId, paymentMethodId, productId } = JSON.parse(event.body);
+    const body = JSON.parse(event.body || "{}");
+    const { customerId, paymentMethodId, amount, currency = 'usd', description, statementDescriptor } = body;
 
-    // 1) Attach the payment method to the customer
-    await stripe.paymentMethods.attach(paymentMethodId, { customer: customerId });
-
-    // 2) Make it the default payment method
-    await stripe.customers.update(customerId, {
-      invoice_settings: { default_payment_method: paymentMethodId },
-    });
-
-    // 3) Look up any active price for the given product
-    const prices = await stripe.prices.list({
-      product: productId,
-      active: true,
-      limit: 1
-    });
-    if (!prices.data.length) {
-      throw new Error(`No active price found for product ${productId}`);
+    if (!customerId || !paymentMethodId || !amount) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Missing customerId, paymentMethodId, or amount' }) };
     }
-    const p = prices.data[0];
 
-    // 4) Create a one-time invoice item using price_data
-    await stripe.invoiceItems.create({
-      customer: customerId,
-      price_data: {
-        currency: p.currency,
-        unit_amount: p.unit_amount,
-        product: productId
+    const amt = Math.round(Number(amount) * 100);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return { statusCode: 400, body: JSON.stringify({ error: 'Invalid amount' }) };
+    }
+
+    const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
+    if (pm.type === 'us_bank_account') {
+      const status = pm.us_bank_account?.status;
+      if (!['verified', 'instant_verified'].includes(status)) {
+        return { statusCode: 400, body: JSON.stringify({ error: `Bank account not verified (status: ${status})` }) };
       }
-    });
+    }
 
-    // 5) Create & finalize the invoice (auto_advance: true will attempt payment)
-    const invoice = await stripe.invoices.create({
+    const pi = await stripe.paymentIntents.create({
+      amount: amt,
+      currency,
       customer: customerId,
-      auto_advance: true,
+      payment_method: paymentMethodId,
+      confirm: true,
+      off_session: true,
+      setup_future_usage: 'off_session',
+      description: description || undefined,
+      statement_descriptor: statementDescriptor || undefined,
+      payment_method_types: pm.type === 'us_bank_account' ? ['us_bank_account'] : ['card'],
     });
 
-    // 6) Pay the invoice immediately
-    const paidInvoice = await stripe.invoices.pay(invoice.id);
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ invoice: paidInvoice }),
-    };
+    return { statusCode: 200, body: JSON.stringify({ paymentIntent: pi }) };
   } catch (err) {
     console.error('charge-now error:', err);
-    return {
-      statusCode: err.statusCode || 500,
-      body: JSON.stringify({ error: err.message }),
-    };
+    return { statusCode: err.statusCode || 500, body: JSON.stringify({ error: err.message }) };
   }
 };
