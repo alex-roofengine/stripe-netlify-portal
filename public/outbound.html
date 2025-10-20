@@ -209,9 +209,15 @@
         <div style="margin-top:1rem">
           <strong>Recent Payments</strong>
           <table style="margin-top:.4rem">
-            <thead><tr><th>Date</th><th>Description</th><th>Status</th><th>Receipt</th></tr></thead>
+            <!-- CHANGED: Added 'Amount' column -->
+            <thead>
+              <tr>
+                <th>Date</th><th>Description</th><th class="nowrap">Amount</th><th>Status</th><th>Receipt</th>
+              </tr>
+            </thead>
             <tbody id="histBody">
-              <tr><td colspan="4" class="muted">Select a client to load history.</td></tr>
+              <!-- CHANGED: colspan from 4 -> 5 -->
+              <tr><td colspan="5" class="muted">Select a client to load history.</td></tr>
             </tbody>
           </table>
         </div>
@@ -235,6 +241,17 @@
     const setProgress = v => { $('#progress').style.width = v+'%'; };
     const showOverlay = on => { $('#loadingOverlay').style.display = on ? 'flex' : 'none'; };
     const showPageLoading = on => { $('#pageLoading').style.display = on ? 'flex' : 'none'; };
+
+    /* NEW: currency formatter (safe fallback) */
+    const usd = (cents, curr='usd') => {
+      if (typeof cents !== 'number') return '—';
+      const val = cents / 100;
+      try {
+        return new Intl.NumberFormat('en-US', { style:'currency', currency:(curr||'usd').toUpperCase() }).format(val);
+      } catch {
+        return `$${val.toFixed(2)}`;
+      }
+    };
 
     function tickClock(){
       const opts={ timeZone:'America/New_York', month:'long', day:'numeric', hour:'numeric', minute:'2-digit', hour12:true };
@@ -360,7 +377,8 @@
         $('#contactName').textContent='—';
         $('#coEmail').textContent='—';
         $('#pmList').innerHTML='';
-        $('#histBody').innerHTML='<tr><td colspan="4" class="muted">Select a client to load history.</td></tr>';
+        // CHANGED: colspan 5
+        $('#histBody').innerHTML='<tr><td colspan="5" class="muted">Select a client to load history.</td></tr>';
         return;
       }
 
@@ -401,11 +419,19 @@
       const charges = await fetch(`/.netlify/functions/list-charges?customerId=${cid}`, { cache:'no-store' }).then(r=>r.json());
       const body = $('#histBody'); body.innerHTML='';
       if (!charges?.length){
-        body.innerHTML = '<tr><td colspan="4" class="muted">No payments found.</td></tr>';
+        // CHANGED: colspan 5
+        body.innerHTML = '<tr><td colspan="5" class="muted">No payments found.</td></tr>';
       } else {
         charges.slice(0,5).forEach(ch=>{
           const tr=document.createElement('tr');
-          tr.innerHTML = `<td class="nowrap">${fmtDate(ch.created)}</td><td>${ch.description||'—'}</td><td>${ch.status==='succeeded'?'<span class="status ok">Paid</span>':'<span class="status fail">Failed</span>'}</td><td>${ch.receipt_url?`<a target="_blank" href="${ch.receipt_url}">Receipt</a>`:'—'}</td>`;
+          // CHANGED: Insert Amount column with graceful fallback to '—'
+          tr.innerHTML = `
+            <td class="nowrap">${fmtDate(ch.created)}</td>
+            <td>${ch.description||'—'}</td>
+            <td class="nowrap">${typeof ch.amount === 'number' ? usd(ch.amount, ch.currency) : '—'}</td>
+            <td>${ch.status==='succeeded'?'<span class="status ok">Paid</span>':'<span class="status fail">Failed</span>'}</td>
+            <td>${ch.receipt_url?`<a target="_blank" href="${ch.receipt_url}">Receipt</a>`:'—'}</td>
+          `;
           body.appendChild(tr);
         });
       }
