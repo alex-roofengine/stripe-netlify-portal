@@ -340,7 +340,7 @@
 
         customers = payload;
         const sel = $('#custSel');
-        sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
+        sel.innerHTML = '<option value="" disabled selected>Click Here to Select a Client…</option>';
         customers.forEach(c=>{
           const opt=document.createElement('option');
           opt.value=c.id;
