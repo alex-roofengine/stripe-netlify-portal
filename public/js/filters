@@ -1,0 +1,13 @@
+// /assets/js/filters.js
+export function getClientType(item) {
+  const priceMeta = item?.metadata || {};
+  const productMeta = item?.product?.metadata || {};
+  return priceMeta.client_type ?? productMeta.client_type ?? null;
+}
+export function isOutbound(item) {
+  return getClientType(item) === 'outbound';
+}
+export function isInbound(item) {
+  const ct = getClientType(item);
+  return !ct || ct === 'inbound';
+}
