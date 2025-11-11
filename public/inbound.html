@@ -257,6 +257,16 @@
     }
     function getCurrentCustomerId(){ if (selectedCustomer?.id) return selectedCustomer.id; const sel=$('#custSel'); return sel && sel.value ? sel.value : null; }
 
+    function getSelectedClientName(){
+  const cid = getCurrentCustomerId();
+  const c = (customers || []).find(x=>x.id===cid) || selectedCustomer || {};
+  return c.name || c.email || c.id || 'Client';
+}
+
+function currentMonthYearLabel(){
+  const d = new Date();
+  return `${monthNames[d.getMonth()]} ${d.getFullYear()}`; // e.g., "Nov 2025"
+}   
     /* --- Loading helpers --- */
     const NET_TIMEOUT_MS = 10000; // 10s
     const CACHE_TTL_MS = 5 * 60 * 1000; // 5min
