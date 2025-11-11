@@ -355,7 +355,7 @@
         setProgress(70);
 
         const sel = $('#custSel');
-        customers = payload;
+        customers = window.filterForPage ? filterForPage(payload, window.PAGE_FILTER_NAME) : payload;
         filterCustomerOptions(document.getElementById('custSearch')?.value || '');
         saveCustomersCache(customers);
 
