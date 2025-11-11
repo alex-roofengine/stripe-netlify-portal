@@ -121,26 +121,26 @@
               <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
             </div>
 
-            <div style="margin-top:.6rem">
-              <label for="descSel">Description</label>
-              <select id="descSel" required>
-                <option value="" disabled selected>Select a description…</option>
-                <option value="RoofEngine Inbound Monthly Retainer - [MMM, YYYY]">RoofEngine Inbound Monthly Retainer - [MMM, YYYY]</option>
-                <option value="RoofEngine Inbound Deposit">RoofEngine Inbound Deposit</option>
-                <option value="RoofEngine Inbound Trial">RoofEngine Inbound Trial</option>
-                <option value="RoofEngine Inbound Pay Per Lead">RoofEngine Inbound Pay Per Lead</option>
-                <option value="__other__">Other, please type in the description…</option>
-              </select>
-              <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
-              <div class="tip">
-                <ul>
-                  <li><strong>Monthly Retainer</strong> → the monthly payment</li>
-                  <li><strong>Deposit</strong> → partial upfront</li>
-                  <li><strong>Pay Per Lead</strong> → PPL</li>
-                  <li><strong>“Other”</strong> → special cases / top-ups</li>
-                </ul>
-              </div>
-            </div>
+            <!-- Description -->
+<div style="margin-top:.6rem">
+  <label for="descSel">Description</label>
+  <select id="descSel" required>
+    <option value="" disabled selected>Select a description…</option>
+    <option value="inbound_retainer">Inbound Retainer</option>
+    <option value="inbound_adspend">Inbound Ad Spend</option>
+    <option value="__other__">Other, please type in the description…</option>
+  </select>
+  <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
+  <div class="tip">
+    <ul>
+      <li>All charges under Inbound will show up like <strong>"Nov 2025 TypeOfCharge - Client Name"</strong></li>
+      <li><strong>Inbound Retainer</strong> → one-time charge for retainer</li>
+      <li><strong>Inbound Ad Spend</strong> → one-time charge for ad spend</li>
+      <li><strong>“Other”</strong> → special cases / top-ups</li>
+    </ul>
+  </div>
+</div>
+
 
             <div style="margin-top:1rem">
               <label>Charge timing</label>
