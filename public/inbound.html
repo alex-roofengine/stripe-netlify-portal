@@ -2,30 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Outbound Client Billing</title>
+  <title>Inbound Client Billing</title>
 </head>
 <body>
-  <h1>Outbound Client Billing</h1>
+  <h1>Inbound Client Billing</h1>
   <select id="custSel"></select>
   <div id="chargeSection" style="display:none"></div>
   <script type="module">
-  import { isOutbound, isInbound } from "./js/filters.js";
-  window.PAGE_FILTER_NAME = 'outbound';
-  window.IS_OUTBOUND = isOutbound;
+  import { isInbound, isInbound } from "./js/filters.js";
+  window.PAGE_FILTER_NAME = 'inbound';
+  window.IS_OUTBOUND = isInbound;
   window.IS_INBOUND = isInbound;
 </script>
   <script>async function loadCustomersAndFill(){
   try{
-    const isOutboundPage = (window.PAGE_FILTER_NAME === 'outbound');
+    const isInboundPage = (window.PAGE_FILTER_NAME === 'outbound');
     let payload;
     try {
-      const primary = isOutboundPage
+      const primary = isInboundPage
         ? '/.netlify/functions/list-outbound-customers'
         : '/.netlify/functions/list-customers?type=inbound';
       payload = await fetch(primary, { cache: 'no-store' }).then(r=>r.json());
       if (!Array.isArray(payload)) throw new Error('bad payload');
     } catch {
-      const fallback = isOutboundPage
+      const fallback = isInboundPage
         ? '/.netlify/functions/list-customers?type=outbound'
         : '/.netlify/functions/list-customers?type=inbound';
       payload = await fetch(fallback, { cache: 'no-store' }).then(r=>r.json());
