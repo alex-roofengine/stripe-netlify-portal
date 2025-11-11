@@ -202,11 +202,12 @@
 
   <script src="https://js.stripe.com/v3"></script>
   <script type="module">
-    import { isOutbound, isInbound } from "./js/filters.js";
-    window.PAGE_FILTER_NAME = "outbound";
-    window.IS_OUTBOUND = isOutbound;
-    window.IS_INBOUND = isInbound;
-  </script>
+  import { isOutbound, isInbound, filterForPage } from "./js/filters.js";
+  window.PAGE_FILTER_NAME = "outbound";
+  window.IS_OUTBOUND = isOutbound;
+  window.IS_INBOUND = isInbound;
+  window.filterForPage = filterForPage;
+</script>
   <script>
     const $  = s => document.querySelector(s);
     const $$ = s => Array.from(document.querySelectorAll(s));
