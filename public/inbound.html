@@ -16,7 +16,7 @@
     .brand{display:flex;align-items:center;gap:.75rem;min-width:280px}
     .brand img{height:28px}
     .brand .title strong{display:block;line-height:1}
-    .badge-outbound{background:#F3E72F;color:#111;font-weight:800;border-radius:8px;padding:.2rem .5rem;margin-left:.4rem;display:inline-block}
+    .badge-inbound{background:#F3E72F;color:#111;font-weight:800;border-radius:8px;padding:.2rem .5rem;margin-left:.4rem;display:inline-block}
     .spacer{flex:1}
     .clock{color:#ddd;font-weight:600;min-width:max-content}
     .home{color:#fff;text-decoration:none;border:2px solid #b50000;background:#cc0000;border-radius:10px;padding:.7rem 1rem;font-weight:800}
@@ -74,7 +74,7 @@
       <img src="assets/logo.svg" alt="RoofEngine" />
       <div class="title">
         <strong>RoofEngine Billing Portal</strong>
-        <span class="badge-outbound">(Inbound)</span>
+        <span class="badge-inbound">(Inbound)</span>
       </div>
     </div>
     <div class="spacer"></div>
@@ -121,26 +121,25 @@
               <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
             </div>
 
-            <!-- Description -->
-<div style="margin-top:.6rem">
-  <label for="descSel">Description</label>
-  <select id="descSel" required>
-    <option value="" disabled selected>Select a description…</option>
-    <option value="inbound_retainer">Inbound Retainer</option>
-    <option value="inbound_adspend">Inbound Ad Spend</option>
-    <option value="__other__">Other, please type in the description…</option>
-  </select>
-  <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
-  <div class="tip">
-    <ul>
-      <li>All charges under Inbound will show up like <strong>"Nov 2025 TypeOfCharge - Client Name"</strong></li>
-      <li><strong>Inbound Retainer</strong> → one-time charge for retainer</li>
-      <li><strong>Inbound Ad Spend</strong> → one-time charge for ad spend</li>
-      <li><strong>“Other”</strong> → special cases / top-ups</li>
-    </ul>
-  </div>
-</div>
-
+            <!-- Description (UPDATED AS REQUESTED) -->
+            <div style="margin-top:.6rem">
+              <label for="descSel">Description</label>
+              <select id="descSel" required>
+                <option value="" disabled selected>Select a description…</option>
+                <option value="inbound_retainer">Inbound Retainer</option>
+                <option value="inbound_adspend">Inbound Ad Spend</option>
+                <option value="__other__">Other, please type in the description…</option>
+              </select>
+              <input id="descOther" type="text" placeholder="Enter custom description…" style="display:none;margin-top:.5rem">
+              <div class="tip">
+                <ul>
+                  <li>All charges under Inbound will show up like <strong>"Nov 2025 TypeOfCharge - Client Name"</strong></li>
+                  <li><strong>Inbound Retainer</strong> → one-time charge for retainer</li>
+                  <li><strong>Inbound Ad Spend</strong> → one-time charge for ad spend</li>
+                  <li><strong>“Other”</strong> → special cases / top-ups</li>
+                </ul>
+              </div>
+            </div>
 
             <div style="margin-top:1rem">
               <label>Charge timing</label>
@@ -202,29 +201,21 @@
 
   <script src="https://js.stripe.com/v3"></script>
   <script type="module">
-  import { isOutbound, isInbound, filterForPage } from "./js/filters.js";
-  window.PAGE_FILTER_NAME = "inbound";
-  window.IS_OUTBOUND = isOutbound;
-  window.IS_INBOUND = isInbound;
-  window.filterForPage = filterForPage;
-</script>
+    import { isOutbound, isInbound, filterForPage } from "./js/filters.js";
+    window.PAGE_FILTER_NAME = "inbound";
+    window.IS_OUTBOUND = isOutbound;
+    window.IS_INBOUND = isInbound;
+    window.filterForPage = filterForPage;
+  </script>
   <script>
     const $  = s => document.querySelector(s);
     const $$ = s => Array.from(document.querySelectorAll(s));
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const fmtDate = unix => { const d = new Date(unix*1000); return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; };
-    const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : '';
-    const setProgress = v => { $('#progress').style.width = v+'%'; };
+    const setProgress = v => { document.getElementById('progress').style.width = v+'%'; };
     const setProgressAnim = on => { const el = document.getElementById('progressAnim'); if (el) el.setAttribute('data-on', on ? 'true':'false'); };
-    const showOverlay = on => { $('#loadingOverlay').style.display = on ? 'flex' : 'none'; };
-    const showPageLoading = on => { $('#pageLoading').style.display = on ? 'flex' : 'none'; };
-
-    const usd = (cents, curr='usd') => {
-      if (typeof cents !== 'number') return '—';
-      const val = cents / 100;
-      try { return new Intl.NumberFormat('en-US', { style:'currency', currency:(curr||'usd').toUpperCase() }).format(val); }
-      catch { return `$${val.toFixed(2)}`; }
-    };
+    const showOverlay = on => { document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none'; };
+    const showPageLoading = on => { document.getElementById('pageLoading').style.display = on ? 'flex' : 'none'; };
 
     function tickClock(){
       const now = new Date();
@@ -246,44 +237,45 @@
     let selectedCustomer = null;
     let defaultPmId = null;
     let currentWhen = 'now';
-    const OUTBOUND_DESCRIPTOR = "ROOFENGINE INBOUND";
-    const OUTBOUND_PRODUCT_ID = "prod_TC1NUvIsUykBKs";
 
-    function normalizeAch(pm = {}) {
+    const BASE_INBOUND_DESCRIPTOR = "ROOFENGINE INBOUND";
+    const PRODUCT_ID = "prod_TC1NUvIsUykBKs";
+    const NET_TIMEOUT_MS = 10000;
+    const CACHE_TTL_MS = 5 * 60 * 1000;
+
+    function normalizeAch(pm = {}){
       const bank = pm.us_bank_account || pm.bank || {};
       const raw = bank.status || bank.verification_status || (bank.financial_connections && bank.financial_connections.verification_status) || null;
       const verified = pm.verified === true || raw === 'verified' || raw === 'instant_verified' || raw === 'succeeded';
       return { bank_name: bank.bank_name || pm.bank_name || 'Bank Account', last4: bank.last4 || pm.last4 || '••••', account_type: bank.account_type || null, status: raw, verified };
     }
-    function getCurrentCustomerId(){ if (selectedCustomer?.id) return selectedCustomer.id; const sel=$('#custSel'); return sel && sel.value ? sel.value : null; }
-
+    function getCurrentCustomerId(){
+      if (selectedCustomer && selectedCustomer.id) return selectedCustomer.id;
+      const sel = document.getElementById('custSel');
+      return sel && sel.value ? sel.value : null;
+    }
     function getSelectedClientName(){
-  const cid = getCurrentCustomerId();
-  const c = (customers || []).find(x=>x.id===cid) || selectedCustomer || {};
-  return c.name || c.email || c.id || 'Client';
-}
-
-function currentMonthYearLabel(){
-  const d = new Date();
-  return `${monthNames[d.getMonth()]} ${d.getFullYear()}`; // e.g., "Nov 2025"
-}   
-    /* --- Loading helpers --- */
-    const NET_TIMEOUT_MS = 10000; // 10s
-    const CACHE_TTL_MS = 5 * 60 * 1000; // 5min
+      const cid = getCurrentCustomerId();
+      const c = (customers || []).find(x=>x.id===cid) || selectedCustomer || {};
+      return c.name || c.email || c.id || 'Client';
+    }
+    function currentMonthYearLabel(){
+      const d = new Date();
+      return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+    }
     function cacheKey(){ return `re_customers_${window.PAGE_FILTER_NAME||'unknown'}`; }
     function saveCustomersCache(list){ try { sessionStorage.setItem(cacheKey(), JSON.stringify({ t: Date.now(), data: list })); } catch {} }
     function readCustomersCache(){ try { const raw = sessionStorage.getItem(cacheKey()); if (!raw) return null; const obj = JSON.parse(raw); if (!obj || !Array.isArray(obj.data)) return null; if (Date.now() - obj.t > CACHE_TTL_MS) return null; return obj.data; } catch { return null; } }
     function fetchWithTimeout(url, options={}, ms=NET_TIMEOUT_MS){
       const ctrl = new AbortController();
       const id = setTimeout(()=>ctrl.abort(), ms);
-      const merged = {...options, signal: ctrl.signal};
+      const merged = { ...options, signal: ctrl.signal };
       return fetch(url, merged).finally(()=>clearTimeout(id));
     }
 
     (async function init(){
       try{
         setProgress(5); setProgressAnim(true);
-
         const customersTask = loadCustomersAndFill();
         const stripeTask = (async () => {
           let publishableKey;
@@ -292,14 +284,8 @@ function currentMonthYearLabel(){
           stripe = Stripe(publishableKey);
           elements = stripe.elements();
         })();
-
         bindUI();
-
         await Promise.allSettled([customersTask, stripeTask]);
-
-        const monthTemplate = `RoofEngine Inbound Monthly Retainer - [${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}]`;
-        [...$('#descSel').options].forEach(o=>{ if(o.value.includes('Monthly Retainer')) o.textContent = monthTemplate; });
-
         setProgress(100); setTimeout(()=>{ setProgress(0); setProgressAnim(false); }, 800);
       }catch(e){
         console.error(e);
@@ -309,27 +295,51 @@ function currentMonthYearLabel(){
     })();
 
     function bindUI(){
-      $('#descSel').addEventListener('change', ()=>{ $('#descOther').style.display = ($('#descSel').value === '__other__') ? 'block' : 'none'; });
-      $$('[data-role="when"]').forEach(p=>{
-        p.addEventListener('click', ()=>{ 
-          $$('[data-role="when"]').forEach(x=>x.setAttribute('data-active','false'));
+      document.getElementById('descSel').addEventListener('change', ()=>{
+        document.getElementById('descOther').style.display = (document.getElementById('descSel').value === '__other__') ? 'block' : 'none';
+      });
+      document.querySelectorAll('[data-role="when"]').forEach(p=>{
+        p.addEventListener('click', ()=>{
+          document.querySelectorAll('[data-role="when"]').forEach(x=>x.setAttribute('data-active','false'));
           p.setAttribute('data-active','true');
           currentWhen = p.dataset.val;
-          $('#laterBox').style.display = currentWhen==='later' ? 'block' : 'none';
+          document.getElementById('laterBox').style.display = currentWhen==='later' ? 'block' : 'none';
         });
       });
-      $('#submit').addEventListener('click', submitCharge);
-      $('#custSel').addEventListener('change', async ()=>{ if ($('#chargeSection').style.display!=='block'){ $('#chargeSection').style.display = 'block'; } showPageLoading(true); await onSelectCustomer($('#custSel').value); showPageLoading(false); });
-      $('#showAddCard').addEventListener('click', ()=>{ $('#newCardWrap').style.display = 'block'; mountCardElement(); });
-      const search = document.getElementById('custSearch'); if (search) search.style.display = 'inline-block'; if (search) search.addEventListener('input', ()=>filterCustomerOptions(search.value));
-      const retry = document.getElementById('retryBtn'); if (retry) retry.addEventListener('click', ()=>{ loadCustomersAndFill(true); });
+      document.getElementById('submit').addEventListener('click', submitCharge);
+      document.getElementById('custSel').addEventListener('change', async ()=>{
+        if (document.getElementById('chargeSection').style.display!=='block'){
+          document.getElementById('chargeSection').style.display = 'block';
+        }
+        showPageLoading(true);
+        await onSelectCustomer(document.getElementById('custSel').value);
+        showPageLoading(false);
+      });
+      document.getElementById('showAddCard').addEventListener('click', ()=>{
+        document.getElementById('newCardWrap').style.display = 'block';
+        mountCardElement();
+      });
+      const search = document.getElementById('custSearch');
+      if (search) search.style.display = 'inline-block';
+      if (search) search.addEventListener('input', ()=>filterCustomerOptions(search.value));
+      const retry = document.getElementById('retryBtn');
+      if (retry) retry.addEventListener('click', ()=>{ loadCustomersAndFill(true); });
     }
 
     function filterCustomerOptions(q=''){
       q = (q || '').toLowerCase().trim();
       const sel = document.getElementById('custSel'); if (!sel) return;
       sel.innerHTML = '<option value="" disabled selected>Select a client…</option>';
-      (customers || []).forEach(c=>{ const name = (c.name || '').toLowerCase(); const email = (c.email || '').toLowerCase(); if (!q || name.includes(q) || email.includes(q)) { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name || c.email || c.id; sel.appendChild(opt); } });
+      (customers || []).forEach(c=>{
+        const name = (c.name || '').toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        if (!q || name.includes(q) || email.includes(q)) {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.name || c.email || c.id;
+          sel.appendChild(opt);
+        }
+      });
     }
 
     async function loadCustomersAndFill(isRetry=false){
@@ -340,88 +350,291 @@ function currentMonthYearLabel(){
           customers = cached;
           filterCustomerOptions(document.getElementById('custSearch')?.value || '');
         } else {
-          $('#custSel').innerHTML = '<option value="" disabled selected>Loading customers…</option>';
+          document.getElementById('custSel').innerHTML = '<option value="" disabled selected>Loading customers…</option>';
         }
-
         setProgress(35);
-
-        const isOutboundPage = (window.PAGE_FILTER_NAME === 'outbound');
-        let payload, primary, fallback, errorMsg = '';
+        let payload, errorMsg = '';
         try {
-          primary = isOutboundPage ? '/.netlify/functions/list-outbound-customers' : '/.netlify/functions/list-customers?type=inbound';
-          payload = await fetchWithTimeout(primary, { cache: 'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
+          payload = await fetchWithTimeout('/.netlify/functions/list-customers?type=inbound', { cache: 'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
           if (!Array.isArray(payload)) throw new Error('Bad payload');
         } catch(e1) {
           errorMsg = e1?.message || String(e1);
           try {
-            fallback = isOutboundPage ? '/.netlify/functions/list-customers?type=outbound' : '/.netlify/functions/list-customers?type=inbound';
-            payload = await fetchWithTimeout(fallback, { cache: 'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
+            payload = await fetchWithTimeout('/.netlify/functions/list-customers?type=inbound', { cache: 'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
             if (!Array.isArray(payload)) throw new Error('Bad payload');
           } catch(e2) {
             errorMsg += ' | ' + (e2?.message || String(e2));
             throw new Error(errorMsg);
           }
         }
-
         setProgress(70);
-
-        const sel = $('#custSel');
+        const sel = document.getElementById('custSel');
         customers = window.filterForPage ? filterForPage(payload, window.PAGE_FILTER_NAME) : payload;
         filterCustomerOptions(document.getElementById('custSearch')?.value || '');
         saveCustomersCache(customers);
-
         setProgress(90);
-
         const urlId = new URLSearchParams(location.search).get('customerId');
-        if (urlId && customers.find(x=>x.id===urlId)) { sel.value = urlId; $('#chargeSection').style.display='block'; await onSelectCustomer(urlId); }
-
-        $('#retryBtn').style.display = 'none';
-        $('#selHelp').classList.remove('error-inline');
+        if (urlId && customers.find(x=>x.id===urlId)) { sel.value = urlId; document.getElementById('chargeSection').style.display='block'; await onSelectCustomer(urlId); }
+        document.getElementById('retryBtn').style.display = 'none';
+        document.getElementById('selHelp').classList.remove('error-inline');
       } catch(err) {
         console.error('[loadCustomersAndFill]', err);
-        const sel = $('#custSel');
+        const sel = document.getElementById('custSel');
         sel.innerHTML = '<option value="" disabled selected>Failed to load customers</option>';
-        $('#selHelp').textContent = 'Could not load customers. Check your connection or try again.';
-        $('#selHelp').classList.add('error-inline');
-        $('#retryBtn').style.display = 'inline-block';
+        document.getElementById('selHelp').textContent = 'Could not load customers. Check your connection or try again.';
+        document.getElementById('selHelp').classList.add('error-inline');
+        document.getElementById('retryBtn').style.display = 'inline-block';
       }
     }
 
-    async function onSelectCustomer(id){ selectedCustomer = customers.find(c=>c.id===id) || { id }; await refreshRightPanel(); await refreshPaymentPickers(); }
+    async function onSelectCustomer(id){
+      selectedCustomer = customers.find(c=>c.id===id) || { id };
+      await refreshRightPanel();
+      await refreshPaymentPickers();
+    }
 
     async function refreshRightPanel(){
       const cid=getCurrentCustomerId();
-      if(!cid){ $('#panelTitle').textContent='Client'; $('#coName').textContent='—'; $('#contactName').textContent='—'; $('#coEmail').textContent='—'; $('#pmList').innerHTML=''; $('#histBody').innerHTML='<tr><td colspan="5" class="muted">Select a client to load history.</td></tr>'; return; }
+      if(!cid){
+        document.getElementById('panelTitle').textContent='Client';
+        document.getElementById('coName').textContent='—';
+        document.getElementById('contactName').textContent='—';
+        document.getElementById('coEmail').textContent='—';
+        document.getElementById('pmList').innerHTML='';
+        document.getElementById('histBody').innerHTML='<tr><td colspan="5" class="muted">Select a client to load history.</td></tr>';
+        return;
+      }
       const selc = customers.find(c=>c.id===cid) || selectedCustomer || {};
-      $('#panelTitle').textContent = `Client — ${selc.name || cid}`; $('#coName').textContent = selc.name || '—'; $('#contactName').textContent= selc.metadata?.contact_name || '—'; $('#coEmail').textContent = selc.email || '—';
+      document.getElementById('panelTitle').textContent = `Client — ${selc.name || cid}`;
+      document.getElementById('coName').textContent = selc.name || '—';
+      document.getElementById('contactName').textContent = selc.metadata?.contact_name || '—';
+      document.getElementById('coEmail').textContent = selc.email || '—';
+
       const pmData = await fetchWithTimeout(`/.netlify/functions/list-payment-methods?customerId=${cid}`, { cache:'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
-      defaultPmId = pmData.defaultPaymentMethod || null; const listEl = $('#pmList'); listEl.innerHTML = '';
+      defaultPmId = pmData.defaultPaymentMethod || null;
+      const listEl = document.getElementById('pmList'); listEl.innerHTML = '';
+
       const pms = Array.isArray(pmData.paymentMethods) ? pmData.paymentMethods : [];
-      if (!pms.length){ listEl.innerHTML = '<div class="muted">No payment methods on file.</div>'; }
-      else{ pms.forEach(pm=>{ let left='', right=''; if (pm.type === 'card'){ const exp=(pm.card?.exp_month&&pm.card?.exp_year)?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:''; left = `${cap(pm.card?.brand||pm.brand||'Card')} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}`; right = `<small>${exp}</small>`; } else if (pm.type === 'us_bank_account'){ const ach=normalizeAch(pm); const acctType=ach.account_type?` (${ach.account_type})`:''; left = `${ach.bank_name} •••• ${ach.last4}${acctType}${pm.id===defaultPmId && ach.verified?' <span class="badge default">Default</span>':''} <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>`; right = `<small>${ach.verified?'Verified bank account':'Not verified'} </small>`; } const row=document.createElement('div'); row.className='pm'; const l=document.createElement('div'); l.className='meta'; l.innerHTML=left; const r=document.createElement('div'); r.innerHTML=right; row.append(l,r); listEl.append(row); }) }
+      if (!pms.length){
+        listEl.innerHTML = '<div class="muted">No payment methods on file.</div>';
+      } else {
+        pms.forEach(pm=>{
+          let left='', right='';
+          if (pm.type === 'card'){
+            const exp=(pm.card?.exp_month&&pm.card?.exp_year)?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:'';
+            left = `${(pm.card?.brand||pm.brand||'Card').toString().replace(/^./,c=>c.toUpperCase())} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}`;
+            right = `<small>${exp}</small>`;
+          } else if (pm.type === 'us_bank_account'){
+            const ach=normalizeAch(pm); const acctType=ach.account_type?` (${ach.account_type})`:'';
+            left = `${ach.bank_name} •••• ${ach.last4}${acctType}${pm.id===defaultPmId && ach.verified?' <span class="badge default">Default</span>':''} <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span>`;
+            right = `<small>${ach.verified?'Verified bank account':'Not verified'}</small>`;
+          }
+          const row=document.createElement('div'); row.className='pm';
+          const l=document.createElement('div'); l.className='meta'; l.innerHTML=left;
+          const r=document.createElement('div'); r.innerHTML=right;
+          row.append(l,r); listEl.append(row);
+        });
+      }
+
       const charges = await fetchWithTimeout(`/.netlify/functions/list-charges?customerId=${cid}`, { cache:'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
-      const body = $('#histBody'); body.innerHTML='';
-      if (!charges?.length){ body.innerHTML = '<tr><td colspan="5" class="muted">No payments found.</td></tr>'; }
-      else{ charges.slice(0,5).forEach(ch=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td class="nowrap">${fmtDate(ch.created)} </td><td>${ch.description||'—'}</td><td class="nowrap">${typeof ch.amount === 'number' ? usd(ch.amount, ch.currency) : '—'}</td><td>${ch.status==='succeeded'?'<span class="status ok">Paid</span>':'<span class="status fail">Failed</span>'}</td><td>${ch.receipt_url?`<a target="_blank" href="${ch.receipt_url}">Receipt</a>`:'—'}</td>`; body.appendChild(tr); }) }
+      const body = document.getElementById('histBody'); body.innerHTML='';
+      if (!charges?.length){
+        body.innerHTML = '<tr><td colspan="5" class="muted">No payments found.</td></tr>';
+      } else {
+        charges.slice(0,5).forEach(ch=>{
+          const tr=document.createElement('tr');
+          tr.innerHTML = `
+            <td class="nowrap">${fmtDate(ch.created)}</td>
+            <td>${ch.description||'—'}</td>
+            <td class="nowrap">${typeof ch.amount === 'number' ? new Intl.NumberFormat('en-US',{style:'currency',currency:(ch.currency||'usd').toUpperCase()}).format(ch.amount/100) : '—'}</td>
+            <td>${ch.status==='succeeded'?'<span class="status ok">Paid</span>':'<span class="status fail">Failed</span>'}</td>
+            <td>${ch.receipt_url?`<a target="_blank" href="${ch.receipt_url}">Receipt</a>`:'—'}</td>
+          `;
+          body.appendChild(tr);
+        });
+      }
     }
 
-    function mountCardElement(){ if (cardEl) return; cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } }); cardEl.mount('#new-card'); }
+    function mountCardElement(){
+      if (cardEl) return;
+      cardEl = elements.create('card',{ style:{ base:{ fontFamily:'Inter, sans-serif' } } });
+      cardEl.mount('#new-card');
+    }
 
     async function refreshPaymentPickers(){
-      const wrap=$('#pmPicker'); wrap.innerHTML=''; $('#addNewBtnWrap').style.display='none'; $('#newCardWrap').style.display='none';
-      const cid=getCurrentCustomerId(); if (!cid){ wrap.innerHTML='<div class="muted">Select a client to load payment methods.</div>'; return; }
+      const wrap=document.getElementById('pmPicker'); wrap.innerHTML='';
+      document.getElementById('addNewBtnWrap').style.display='none';
+      document.getElementById('newCardWrap').style.display='none';
+
+      const cid=getCurrentCustomerId();
+      if (!cid){
+        wrap.innerHTML='<div class="muted">Select a client to load payment methods.</div>';
+        return;
+      }
+
       const data = await fetchWithTimeout(`/.netlify/functions/list-payment-methods?customerId=${cid}`, { cache:'no-store' }, NET_TIMEOUT_MS).then(r=>r.json());
-      defaultPmId = data.defaultPaymentMethod || null; const pms = data.paymentMethods || []; const cards=pms.filter(p=>p.type==='card'); const banks=pms.filter(p=>p.type==='us_bank_account');
-      if (!cards.length && !banks.length){ $('#noPmHint').style.display='block'; $('#newCardWrap').style.display='block'; mountCardElement(); return; }
-      $('#noPmHint').style.display='none'; $('#addNewBtnWrap').style.display='flex';
-      cards.forEach(pm=>{ const id=`pick-${pm.id}`; const label=document.createElement('label'); label.className='pm'; const expTxt=pm.card?.exp_month&&pm.card?.exp_year?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:''; label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} /><span>${(pm.card?.brand||pm.brand||'Card').toString().replace(/^./,c=>c.toUpperCase())} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}</span></div><small>${expTxt}</small>`; wrap.appendChild(label); });
-      banks.forEach(pm=>{ const id=`pick-${pm.id}`; const ach=normalizeAch(pm); const bankName=ach.bank_name; const acctType=ach.account_type?` (${ach.account_type})`:''; const verified=ach.verified; const label=document.createElement('label'); label.className='pm'; label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${verified?'':'disabled'} ${pm.id===defaultPmId && verified?'checked':''} /><span>${bankName} •••• ${ach.last4}${acctType}${pm.id===defaultPmId && verified?' <span class="badge default">Default</span>':''} <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span></span></div><small>${verified?'Verified bank account':'Not verified — cannot charge'}</small>`; wrap.appendChild(label); });
+      defaultPmId = data.defaultPaymentMethod || null;
+
+      const pms = data.paymentMethods || [];
+      const cards=pms.filter(p=>p.type==='card');
+      const banks=pms.filter(p=>p.type==='us_bank_account');
+
+      if (!cards.length && !banks.length){
+        document.getElementById('noPmHint').style.display='block';
+        document.getElementById('newCardWrap').style.display='block';
+        mountCardElement();
+        return;
+      }
+      document.getElementById('noPmHint').style.display='none';
+      document.getElementById('addNewBtnWrap').style.display='flex';
+
+      // Cards
+      cards.forEach(pm=>{
+        const id=`pick-${pm.id}`;
+        const label=document.createElement('label'); label.className='pm';
+        const expTxt=pm.card?.exp_month&&pm.card?.exp_year?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:'';
+        label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} /><span>${(pm.card?.brand||pm.brand||'Card').toString().replace(/^./,c=>c.toUpperCase())} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}</span></div><small>${expTxt}</small>`;
+        wrap.appendChild(label);
+      });
+
+      // ACH
+      banks.forEach(pm=>{
+        const id=`pick-${pm.id}`;
+        const ach=normalizeAch(pm);
+        const bankName=ach.bank_name;
+        const acctType=ach.account_type?` (${ach.account_type})`:'';
+        const verified=ach.verified;
+
+        const label=document.createElement('label'); label.className='pm';
+        label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${verified?'':'disabled'} ${pm.id===defaultPmId && verified?'checked':''} /><span>${bankName} •••• ${ach.last4}${acctType}${pm.id===defaultPmId && verified?' <span class="badge default">Default</span>':''} <span class="badge" style="background:#0ea5e9;color:#fff">ACH</span></span></div><small>${verified?'Verified bank account':'Not verified — cannot charge'}</small>`;
+        wrap.appendChild(label);
+      });
     }
 
-    async function submitCharge(e){ e.preventDefault(); $('#resultMsg').textContent=''; const cid=getCurrentCustomerId(); if (!cid){ alert('Please select a client.'); return; } const amountVal=parseFloat($('#amount').value); if (!amountVal || amountVal<=0){ $('#resultMsg').textContent='❌ Please enter a valid amount.'; return; } const desc = ($('#descSel').value==='__other__') ? $('#descOther').value.trim() : $('#descSel').value.replace('[MMM, YYYY]', `${monthNames[new Date().getMonth()]}, ${new Date().getFullYear()}`); if (!desc){ $('#resultMsg').textContent='❌ Please choose or enter a description.'; return; } const checked = document.querySelector('input[name="pmPick"]:checked'); let pmId = checked ? checked.value : null; showOverlay(true); try{ if (!pmId){ mountCardElement(); const { paymentMethod, error } = await stripe.createPaymentMethod({ type:'card', card: cardEl }); if (error) throw new Error(error.message); pmId = paymentMethod.id; } if (currentWhen === 'now'){ const res = await fetchWithTimeout('/.netlify/functions/outbound-client-charge-now',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ customerId: cid, paymentMethodId: pmId, amount: Math.round(amountVal * 100), statementDescriptor: OUTBOUND_DESCRIPTOR, description: desc }) }, NET_TIMEOUT_MS).then(r=>r.json()); if (res.error) throw new Error(res.error); $('#resultMsg').textContent = res.settlement_notice ? '✅ Charged. ' + res.settlement_notice : '✅ Charged successfully'; } else { const date=$('#chargeDate').value; if (!date){ $('#resultMsg').textContent='❌ Please pick a future date.'; showOverlay(false); return; } const time='09:00'; let timezone='UTC'; try { timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; } catch {} const res = await fetchWithTimeout('/.netlify/functions/outbound-client-charge-later',{ method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ customerId: cid, paymentMethodId: pmId, productId: OUTBOUND_PRODUCT_ID, amount: amountVal, date, time, timezone, description: desc, statementDescriptor: OUTBOUND_DESCRIPTOR }) }, NET_TIMEOUT_MS).then(r=>r.json()); if (res.error) throw new Error(res.error); $('#resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET'; } $('#amount').value=''; if ($('#descSel').value==='__other__') $('#descOther').value=''; await refreshRightPanel(); }catch(err){ $('#resultMsg').textContent = '❌ ' + (err?.message || String(err)); }finally{ showOverlay(false); } }
+    async function submitCharge(e){
+      e.preventDefault();
+      document.getElementById('resultMsg').textContent = '';
+
+      const cid=getCurrentCustomerId();
+      if (!cid){ alert('Please select a client.'); return; }
+
+      const amountVal=parseFloat(document.getElementById('amount').value);
+      if (!amountVal || amountVal<=0){ document.getElementById('resultMsg').textContent='❌ Please enter a valid amount.'; return; }
+
+      // Build inbound description + statement descriptor
+      let statementDescriptor = BASE_INBOUND_DESCRIPTOR;
+      let desc = '';
+
+      const choice = document.getElementById('descSel').value;
+      const clientName = getSelectedClientName();
+      const monthLabel = currentMonthYearLabel();
+
+      if (choice === 'inbound_retainer') {
+        statementDescriptor = 'ROOFENGINE INBOUND RETAINER';
+        desc = `${monthLabel} Retainer - ${clientName}`;
+      } else if (choice === 'inbound_adspend') {
+        statementDescriptor = 'ROOFENGINE INBOUND ADSPEND';
+        desc = `${monthLabel} Ad Spend - ${clientName}`;
+      } else if (choice === '__other__') {
+        statementDescriptor = 'ROOFENGINE INBOUND';
+        desc = document.getElementById('descOther').value.trim();
+      } else {
+        document.getElementById('resultMsg').textContent = '❌ Please choose or enter a description.';
+        return;
+      }
+      if (!desc){
+        document.getElementById('resultMsg').textContent='❌ Please choose or enter a description.';
+        return;
+      }
+
+      // Which PM?
+      const checked = document.querySelector('input[name="pmPick"]:checked');
+      let pmId = checked ? checked.value : null;
+
+      showOverlay(true);
+      try{
+        if (!pmId){
+          mountCardElement();
+          const { paymentMethod, error } = await stripe.createPaymentMethod({ type:'card', card: cardEl });
+          if (error) throw new Error(error.message);
+          pmId = paymentMethod.id;
+        }
+
+        if (currentWhen === 'now'){
+          const res = await fetchWithTimeout('/.netlify/functions/outbound-client-charge-now',{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              customerId: cid,
+              paymentMethodId: pmId,
+              amount: Math.round(amountVal * 100), // cents
+              statementDescriptor,
+              description: desc
+            })
+          }, NET_TIMEOUT_MS).then(r=>r.json());
+          if (res.error) throw new Error(res.error);
+          document.getElementById('resultMsg').textContent = res.settlement_notice ? '✅ Charged. ' + res.settlement_notice : '✅ Charged successfully';
+        } else {
+          const date=document.getElementById('chargeDate').value;
+          if (!date){ document.getElementById('resultMsg').textContent='❌ Please pick a future date.'; showOverlay(false); return; }
+          const time='09:00';
+          let timezone='UTC'; try { timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC'; } catch {}
+
+          const res = await fetchWithTimeout('/.netlify/functions/outbound-client-charge-later',{
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              customerId: cid,
+              paymentMethodId: pmId,
+              productId: PRODUCT_ID,
+              amount: amountVal,                 // dollars (create now, confirm later)
+              date, time, timezone,
+              description: desc,
+              statementDescriptor
+            })
+          }, NET_TIMEOUT_MS).then(r=>r.json());
+          if (res.error) throw new Error(res.error);
+          document.getElementById('resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
+        }
+
+        // Reset inputs
+        document.getElementById('amount').value='';
+        if (document.getElementById('descSel').value==='__other__') document.getElementById('descOther').value='';
+
+        await refreshRightPanel();
+      }catch(err){
+        document.getElementById('resultMsg').textContent = '❌ ' + (err?.message || String(err));
+      }finally{
+        showOverlay(false);
+      }
+    }
 
     document.addEventListener('click', (e)=>{ if (e.target && e.target.id==='saveCard') saveNewCard(e); });
-    async function saveNewCard(e){ e.preventDefault(); const cid=getCurrentCustomerId(); if(!cid){ alert('Select a client first.'); return; } $('#saveCardMsg').textContent=''; showOverlay(true); try{ mountCardElement(); const { clientSecret, error:siErr } = await fetchWithTimeout('/.netlify/functions/create-setup-intent',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: cid }) }, NET_TIMEOUT_MS).then(r=>r.json()); if (siErr || !clientSecret) throw new Error(siErr || 'No client secret'); const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card: cardEl } }); if (error) throw new Error(error.message); const attach = await fetchWithTimeout('/.netlify/functions/attach-method',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: cid, paymentMethodId: setupIntent.payment_method, setDefault: true }) }, NET_TIMEOUT_MS).then(r=>r.json()); if (attach.error) throw new Error(attach.error); $('#saveCardMsg').textContent = '✅ Card saved & set as default'; await refreshRightPanel(); await refreshPaymentPickers(); alert('New card saved & set as default. Please choose which card to use for this charge.'); }catch(err){ $('#saveCardMsg').textContent = '❌ ' + (err?.message || err); }finally{ showOverlay(false); } }
+    async function saveNewCard(e){
+      e.preventDefault();
+      const cid=getCurrentCustomerId(); if(!cid){ alert('Select a client first.'); return; }
+      document.getElementById('saveCardMsg').textContent=''; showOverlay(true);
+      try{
+        mountCardElement();
+        const { clientSecret, error:siErr } = await fetchWithTimeout('/.netlify/functions/create-setup-intent',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: cid }) }, NET_TIMEOUT_MS).then(r=>r.json());
+        if (siErr || !clientSecret) throw new Error(siErr || 'No client secret');
+
+        const { setupIntent, error } = await stripe.confirmCardSetup(clientSecret,{ payment_method:{ card: cardEl } });
+        if (error) throw new Error(error.message);
+
+        const attach = await fetchWithTimeout('/.netlify/functions/attach-method',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ customerId: cid, paymentMethodId: setupIntent.payment_method, setDefault: true }) }, NET_TIMEOUT_MS).then(r=>r.json());
+        if (attach.error) throw new Error(attach.error);
+
+        document.getElementById('saveCardMsg').textContent = '✅ Card saved & set as default';
+        await refreshRightPanel();
+        await refreshPaymentPickers();
+        alert('New card saved & set as default. Please choose which card to use for this charge.');
+      }catch(err){
+        document.getElementById('saveCardMsg').textContent = '❌ ' + (err?.message || err);
+      }finally{
+        showOverlay(false);
+      }
+    }
   </script>
 </body>
 </html>
