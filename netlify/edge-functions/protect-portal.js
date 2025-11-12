@@ -2,7 +2,7 @@ export default async (req) => {
   const url = new URL(req.url);
   const p = url.pathname;
 
-  // Allowlist public routes needed before login
+  // Public routes before login (adjust asset prefixes to your repo)
   const allow = [
     '/login.html',
     '/favicon.ico',
@@ -10,19 +10,16 @@ export default async (req) => {
     '/.netlify/functions/login',
     '/.netlify/functions/auth-callback',
     '/.netlify/functions/logout',
-    '/assets/', '/images/', '/css/', '/js/', '/_next/', '/build/'
+    '/assets/', '/images/', '/img/', '/css/', '/js/', '/_next/', '/build/'
   ];
-  if (p === '/' || p === '/index.html') {
-    // send visitors to login by default
-    return Response.redirect(new URL('/login.html', req.url), 302);
-  }
-  if (allow.some(a => p === a || p.startsWith(a))) return; // let it through
+  if (allow.some(a => p === a || p.startsWith(a))) return; // allow public stuff
 
-  // --- session check (same scheme as your auth-callback) ---
+  // ---- Require session for everything else ----
   const cookie = req.headers.get('cookie') || '';
   const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
   if (!m) return Response.redirect(new URL('/login.html', req.url), 302);
 
+  // Verify signature (must match auth-callback)
   const [body, sig] = m[1].split('.');
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
@@ -35,7 +32,6 @@ export default async (req) => {
   const expected = await crypto.subtle.sign('HMAC', key, enc.encode(body));
   const expectedB64 = btoa(String.fromCharCode(...new Uint8Array(expected)))
     .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-
   if (sig !== expectedB64) return new Response('Forbidden', { status: 403 });
 
   const claims = JSON.parse(atob(body));
@@ -48,7 +44,7 @@ export default async (req) => {
     return new Response('Forbidden', { status: 403 });
   }
 
-  // allow request
+  // Auth OK → let request proceed to "/" (home) or any page
   return;
 };
 
