@@ -62,11 +62,9 @@ exports.handler = async (event) => {
       SESSION_SECRET
     );
 
-    return {
+   return {
   statusCode: 302,
-  headers: {
-    Location: '/' // or wherever you want to land post-login
-  },
+  headers: { Location: '/' },
   multiValueHeaders: {
     'Set-Cookie': [
       `session=${session}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=28800`,
@@ -74,6 +72,7 @@ exports.handler = async (event) => {
     ]
   }
 };
+
 
   } catch (e) {
     return { statusCode: 500, body: `Auth error: ${e.message}` };
