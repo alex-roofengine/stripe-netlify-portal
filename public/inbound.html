@@ -121,6 +121,10 @@
               <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
             </div>
 
+            <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
+            <div id="amountHint" class="amount-hint" style="font-size:.9rem;color:#555;margin-top:.35rem"></div>
+
+
             <!-- Description (UPDATED AS REQUESTED) -->
             <div style="margin-top:.6rem">
               <label for="descSel">Description</label>
@@ -273,6 +277,33 @@
       return fetch(url, merged).finally(()=>clearTimeout(id));
     }
 
+function computeTotalCents(baseDollars, choice){
+  const cents = Math.round((baseDollars || 0) * 100);
+  if (choice === 'inbound_adspend') {
+    return Math.round(cents * 1.035); // add 3.5%
+  }
+  return cents;
+}
+function computeTotalDollars(baseDollars, choice){
+  return computeTotalCents(baseDollars, choice) / 100;
+}
+function updateAmountHint(){
+  const choice = $('#descSel').value;
+  const base = parseFloat($('#amount').value) || 0;
+  const total = computeTotalDollars(base, choice);
+  const hint = $('#amountHint');
+  if (!hint) return;
+  if (choice === 'inbound_adspend' && base > 0){
+    const fee = (total - base).toFixed(2);
+    hint.textContent = `Includes 3.5% processing fee (+$${fee}). Total charge: $${total.toFixed(2)}`;
+  } else {
+    hint.textContent = '';
+  }
+}
+
+
+
+    
     (async function init(){
       try{
         setProgress(5); setProgressAnim(true);
@@ -324,6 +355,12 @@
       if (search) search.addEventListener('input', ()=>filterCustomerOptions(search.value));
       const retry = document.getElementById('retryBtn');
       if (retry) retry.addEventListener('click', ()=>{ loadCustomersAndFill(true); });
+      $('#descSel').addEventListener('change', ()=>{
+  $('#descOther').style.display = ($('#descSel').value === '__other__') ? 'block' : 'none';
+  updateAmountHint();
+});
+$('#amount').addEventListener('input', updateAmountHint);
+
     }
 
     function filterCustomerOptions(q=''){
@@ -546,7 +583,12 @@
         document.getElementById('resultMsg').textContent='❌ Please choose or enter a description.';
         return;
       }
+// Compute total (adds 3.5% if 'Inbound Ad Spend')
+const choice = $('#descSel').value; // you already have this
+const totalCents = computeTotalCents(amountVal, choice);
+const totalDollars = totalCents / 100;
 
+      
       // Which PM?
       const checked = document.querySelector('input[name="pmPick"]:checked');
       let pmId = checked ? checked.value : null;
