@@ -4,11 +4,8 @@
 
 [dev]
   functions = "netlify/functions"
-
-  [build]
-  publish = "public"
+  publish   = "public"
 
 [[edge_functions]]
   path = "/portal/*"
   function = "protect-portal"
-
