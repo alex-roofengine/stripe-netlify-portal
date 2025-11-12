@@ -558,6 +558,12 @@ $('#amount').addEventListener('input', updateAmountHint);
       const amountVal=parseFloat(document.getElementById('amount').value);
       if (!amountVal || amountVal<=0){ document.getElementById('resultMsg').textContent='❌ Please enter a valid amount.'; return; }
 
+      // Compute total (adds 3.5% if 'Inbound Ad Spend')
+const choice = $('#descSel').value; // which description user picked
+const totalCents = computeTotalCents(amountVal, choice);
+const totalDollars = totalCents / 100;
+
+
       // Build inbound description + statement descriptor
       let statementDescriptor = BASE_INBOUND_DESCRIPTOR;
       let desc = '';
@@ -609,7 +615,7 @@ const totalDollars = totalCents / 100;
             body: JSON.stringify({
               customerId: cid,
               paymentMethodId: pmId,
-              amount: Math.round(amountVal * 100), // cents
+              amount: totalCents, // includes +3.5% if Ad Spend
               statementDescriptor,
               description: desc
             })
@@ -629,7 +635,7 @@ const totalDollars = totalCents / 100;
               customerId: cid,
               paymentMethodId: pmId,
               productId: PRODUCT_ID,
-              amount: amountVal,                 // dollars (create now, confirm later)
+              amount: totalDollars, // includes +3.5% if Ad Spend
               date, time, timezone,
               description: desc,
               statementDescriptor
