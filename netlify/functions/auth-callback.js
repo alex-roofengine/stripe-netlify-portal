@@ -63,17 +63,18 @@ exports.handler = async (event) => {
     );
 
     return {
-      statusCode: 302,
-      headers: {
-        Location: '/portal/',
-        'Set-Cookie': [
-          // session cookie
-          `session=${session}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=28800`,
-          // clear oauth_state
-          'oauth_state=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'
-        ]
-      }
-    };
+  statusCode: 302,
+  headers: {
+    Location: '/' // or wherever you want to land post-login
+  },
+  multiValueHeaders: {
+    'Set-Cookie': [
+      `session=${session}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=28800`,
+      'oauth_state=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'
+    ]
+  }
+};
+
   } catch (e) {
     return { statusCode: 500, body: `Auth error: ${e.message}` };
   }
