@@ -4,11 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Inbound Client Billing</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
   <style>
     *{box-sizing:border-box}
     body,html{margin:0;padding:0;height:100%;font-family:'Inter',sans-serif;background:#fafafa;color:#111}
@@ -22,7 +20,7 @@
     .home{color:#fff;text-decoration:none;border:2px solid #b50000;background:#cc0000;border-radius:10px;padding:.7rem 1rem;font-weight:800}
     #progress{height:3px;background:#F3E72F;width:0;transition:width .25s ease;position:relative;z-index:19}
     .progress-anim{position:absolute;left:0;top:0;height:3px;width:100%;background:linear-gradient(90deg,rgba(243,231,47,0) 0%,rgba(243,231,47,.9) 50%,rgba(243,231,47,0) 100%);background-size:200% 100%;animation:slide 1s linear infinite;opacity:0}
-    .progress-anim[data-on="true"]{opacity:1}
+    .progress-anim[data-on='true']{opacity:1}
     @keyframes slide{0%{background-position:200% 0}100%{background-position:-200% 0}}
     .wrap{max-width:1200px;margin:0 auto;padding:1.25rem}
     .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:1.25rem}
@@ -30,14 +28,14 @@
     .card h2{margin:.25rem 0 1rem;font-size:1.15rem}
     .muted{color:#666}
     .row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap}
-    select,input[type="date"],input[type="number"],input[type="text"]{padding:.65rem .75rem;border:1px solid #d6d6d6;border-radius:8px;background:#fff;font-size:1rem}
+    select,input[type='date'],input[type='number'],input[type='text']{padding:.65rem .75rem;border:1px solid #d6d6d6;border-radius:8px;background:#fff;font-size:1rem}
     select{min-width:300px}
     label{display:block;font-weight:600;margin:.25rem 0 .35rem}
     .choices{display:flex;gap:.75rem}
     .pill{border:1px solid #d6d6d6;border-radius:999px;padding:.45rem .9rem;cursor:pointer;font-weight:700;user-select:none}
-    .pill[data-active="true"]{background:#111;color:#fff;border-color:#111}
-    .pill.green[data-active="true"]{background:#00D084;border-color:#00D084}
-    .pill.orange[data-active="true"]{background:#ff7800;border-color:#ff7800}
+    .pill[data-active='true']{background:#111;color:#fff;border-color:#111}
+    .pill.green[data-active='true']{background:#00D084;border-color:#00D084}
+    .pill.orange[data-active='true']{background:#ff7800;border-color:#ff7800}
     #new-card{border:1px solid #d6d6d6;border-radius:8px;padding:12px;margin-top:.25rem}
     .pm{display:flex;justify-content:space-between;align-items:center;border:1px solid #eee;border-radius:10px;padding:.65rem .75rem;margin:.5rem 0}
     .pm .meta{display:flex;align-items:center;gap:.5rem}
@@ -66,6 +64,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     @media(max-width:980px){.grid{grid-template-columns:1fr}select{min-width:unset;width:100%}}
     .error-inline{color:#b42318;font-weight:700}
+    .amount-hint{font-size:.9rem;color:#555;margin-top:.35rem}
   </style>
 </head>
 <body>
@@ -119,13 +118,10 @@
             <div style="margin-top:1rem">
               <label for="amount">Amount (USD)</label>
               <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
+              <div id="amountHint" class="amount-hint"></div>
             </div>
 
-            <input type="number" id="amount" min="1" step="1" placeholder="2500" required>
-            <div id="amountHint" class="amount-hint" style="font-size:.9rem;color:#555;margin-top:.35rem"></div>
-
-
-            <!-- Description (UPDATED AS REQUESTED) -->
+            <!-- Description -->
             <div style="margin-top:.6rem">
               <label for="descSel">Description</label>
               <select id="descSel" required>
@@ -216,6 +212,7 @@
     const $$ = s => Array.from(document.querySelectorAll(s));
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const fmtDate = unix => { const d = new Date(unix*1000); return `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`; };
+    const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : "";
     const setProgress = v => { document.getElementById('progress').style.width = v+'%'; };
     const setProgressAnim = on => { const el = document.getElementById('progressAnim'); if (el) el.setAttribute('data-on', on ? 'true':'false'); };
     const showOverlay = on => { document.getElementById('loadingOverlay').style.display = on ? 'flex' : 'none'; };
@@ -247,6 +244,13 @@
     const NET_TIMEOUT_MS = 10000;
     const CACHE_TTL_MS = 5 * 60 * 1000;
 
+    function usd(cents, curr='usd') {
+      if (typeof cents !== 'number') return '—';
+      const val = cents / 100;
+      try { return new Intl.NumberFormat('en-US', { style:'currency', currency:(curr||'usd').toUpperCase() }).format(val); }
+      catch { return '$' + val.toFixed(2); }
+    }
+
     function normalizeAch(pm = {}){
       const bank = pm.us_bank_account || pm.bank || {};
       const raw = bank.status || bank.verification_status || (bank.financial_connections && bank.financial_connections.verification_status) || null;
@@ -267,6 +271,32 @@
       const d = new Date();
       return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
     }
+
+    // Amount helpers for Ad Spend fee
+    function computeTotalCents(baseDollars, choice){
+      const cents = Math.round((baseDollars || 0) * 100);
+      if (choice === 'inbound_adspend') {
+        return Math.round(cents * 1.035); // add 3.5%
+      }
+      return cents;
+    }
+    function computeTotalDollars(baseDollars, choice){
+      return computeTotalCents(baseDollars, choice) / 100;
+    }
+    function updateAmountHint(){
+      const choice = document.getElementById('descSel').value;
+      const base = parseFloat(document.getElementById('amount').value) || 0;
+      const total = computeTotalDollars(base, choice);
+      const hint = document.getElementById('amountHint');
+      if (!hint) return;
+      if (choice === 'inbound_adspend' && base > 0){
+        const fee = (total - base).toFixed(2);
+        hint.textContent = `Includes 3.5% processing fee (+$${fee}). Total charge: $${total.toFixed(2)}`;
+      } else {
+        hint.textContent = '';
+      }
+    }
+
     function cacheKey(){ return `re_customers_${window.PAGE_FILTER_NAME||'unknown'}`; }
     function saveCustomersCache(list){ try { sessionStorage.setItem(cacheKey(), JSON.stringify({ t: Date.now(), data: list })); } catch {} }
     function readCustomersCache(){ try { const raw = sessionStorage.getItem(cacheKey()); if (!raw) return null; const obj = JSON.parse(raw); if (!obj || !Array.isArray(obj.data)) return null; if (Date.now() - obj.t > CACHE_TTL_MS) return null; return obj.data; } catch { return null; } }
@@ -277,33 +307,6 @@
       return fetch(url, merged).finally(()=>clearTimeout(id));
     }
 
-function computeTotalCents(baseDollars, choice){
-  const cents = Math.round((baseDollars || 0) * 100);
-  if (choice === 'inbound_adspend') {
-    return Math.round(cents * 1.035); // add 3.5%
-  }
-  return cents;
-}
-function computeTotalDollars(baseDollars, choice){
-  return computeTotalCents(baseDollars, choice) / 100;
-}
-function updateAmountHint(){
-  const choice = $('#descSel').value;
-  const base = parseFloat($('#amount').value) || 0;
-  const total = computeTotalDollars(base, choice);
-  const hint = $('#amountHint');
-  if (!hint) return;
-  if (choice === 'inbound_adspend' && base > 0){
-    const fee = (total - base).toFixed(2);
-    hint.textContent = `Includes 3.5% processing fee (+$${fee}). Total charge: $${total.toFixed(2)}`;
-  } else {
-    hint.textContent = '';
-  }
-}
-
-
-
-    
     (async function init(){
       try{
         setProgress(5); setProgressAnim(true);
@@ -328,7 +331,10 @@ function updateAmountHint(){
     function bindUI(){
       document.getElementById('descSel').addEventListener('change', ()=>{
         document.getElementById('descOther').style.display = (document.getElementById('descSel').value === '__other__') ? 'block' : 'none';
+        updateAmountHint();
       });
+      document.getElementById('amount').addEventListener('input', updateAmountHint);
+
       document.querySelectorAll('[data-role="when"]').forEach(p=>{
         p.addEventListener('click', ()=>{
           document.querySelectorAll('[data-role="when"]').forEach(x=>x.setAttribute('data-active','false'));
@@ -355,12 +361,6 @@ function updateAmountHint(){
       if (search) search.addEventListener('input', ()=>filterCustomerOptions(search.value));
       const retry = document.getElementById('retryBtn');
       if (retry) retry.addEventListener('click', ()=>{ loadCustomersAndFill(true); });
-      $('#descSel').addEventListener('change', ()=>{
-  $('#descOther').style.display = ($('#descSel').value === '__other__') ? 'block' : 'none';
-  updateAmountHint();
-});
-$('#amount').addEventListener('input', updateAmountHint);
-
     }
 
     function filterCustomerOptions(q=''){
@@ -405,19 +405,21 @@ $('#amount').addEventListener('input', updateAmountHint);
           }
         }
         setProgress(70);
-        const sel = document.getElementById('custSel');
         customers = window.filterForPage ? filterForPage(payload, window.PAGE_FILTER_NAME) : payload;
         filterCustomerOptions(document.getElementById('custSearch')?.value || '');
         saveCustomersCache(customers);
         setProgress(90);
         const urlId = new URLSearchParams(location.search).get('customerId');
-        if (urlId && customers.find(x=>x.id===urlId)) { sel.value = urlId; document.getElementById('chargeSection').style.display='block'; await onSelectCustomer(urlId); }
+        if (urlId && customers.find(x=>x.id===urlId)) {
+          document.getElementById('custSel').value = urlId;
+          document.getElementById('chargeSection').style.display='block';
+          await onSelectCustomer(urlId);
+        }
         document.getElementById('retryBtn').style.display = 'none';
         document.getElementById('selHelp').classList.remove('error-inline');
       } catch(err) {
         console.error('[loadCustomersAndFill]', err);
-        const sel = document.getElementById('custSel');
-        sel.innerHTML = '<option value="" disabled selected>Failed to load customers</option>';
+        document.getElementById('custSel').innerHTML = '<option value="" disabled selected>Failed to load customers</option>';
         document.getElementById('selHelp').textContent = 'Could not load customers. Check your connection or try again.';
         document.getElementById('selHelp').classList.add('error-inline');
         document.getElementById('retryBtn').style.display = 'inline-block';
@@ -459,7 +461,7 @@ $('#amount').addEventListener('input', updateAmountHint);
           let left='', right='';
           if (pm.type === 'card'){
             const exp=(pm.card?.exp_month&&pm.card?.exp_year)?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:'';
-            left = `${(pm.card?.brand||pm.brand||'Card').toString().replace(/^./,c=>c.toUpperCase())} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}`;
+            left = `${cap(pm.card?.brand||pm.brand||'Card')} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}`;
             right = `<small>${exp}</small>`;
           } else if (pm.type === 'us_bank_account'){
             const ach=normalizeAch(pm); const acctType=ach.account_type?` (${ach.account_type})`:'';
@@ -483,7 +485,7 @@ $('#amount').addEventListener('input', updateAmountHint);
           tr.innerHTML = `
             <td class="nowrap">${fmtDate(ch.created)}</td>
             <td>${ch.description||'—'}</td>
-            <td class="nowrap">${typeof ch.amount === 'number' ? new Intl.NumberFormat('en-US',{style:'currency',currency:(ch.currency||'usd').toUpperCase()}).format(ch.amount/100) : '—'}</td>
+            <td class="nowrap">${typeof ch.amount === 'number' ? usd(ch.amount, ch.currency) : '—'}</td>
             <td>${ch.status==='succeeded'?'<span class="status ok">Paid</span>':'<span class="status fail">Failed</span>'}</td>
             <td>${ch.receipt_url?`<a target="_blank" href="${ch.receipt_url}">Receipt</a>`:'—'}</td>
           `;
@@ -530,7 +532,7 @@ $('#amount').addEventListener('input', updateAmountHint);
         const id=`pick-${pm.id}`;
         const label=document.createElement('label'); label.className='pm';
         const expTxt=pm.card?.exp_month&&pm.card?.exp_year?`Expires ${monthNames[(pm.card.exp_month||1)-1]} ${pm.card.exp_year}`:'';
-        label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} /><span>${(pm.card?.brand||pm.brand||'Card').toString().replace(/^./,c=>c.toUpperCase())} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}</span></div><small>${expTxt}</small>`;
+        label.innerHTML = `<div class="meta"><input type="radio" name="pmPick" id="${id}" value="${pm.id}" ${pm.id===defaultPmId?'checked':''} /><span>${cap(pm.card?.brand||pm.brand||'Card')} •••• ${pm.card?.last4 || pm.last4 || '••••'}${pm.id===defaultPmId?' <span class="badge default">Default</span>':''}</span></div><small>${expTxt}</small>`;
         wrap.appendChild(label);
       });
 
@@ -558,12 +560,6 @@ $('#amount').addEventListener('input', updateAmountHint);
       const amountVal=parseFloat(document.getElementById('amount').value);
       if (!amountVal || amountVal<=0){ document.getElementById('resultMsg').textContent='❌ Please enter a valid amount.'; return; }
 
-      // Compute total (adds 3.5% if 'Inbound Ad Spend')
-const choice = $('#descSel').value; // which description user picked
-const totalCents = computeTotalCents(amountVal, choice);
-const totalDollars = totalCents / 100;
-
-
       // Build inbound description + statement descriptor
       let statementDescriptor = BASE_INBOUND_DESCRIPTOR;
       let desc = '';
@@ -589,12 +585,11 @@ const totalDollars = totalCents / 100;
         document.getElementById('resultMsg').textContent='❌ Please choose or enter a description.';
         return;
       }
-// Compute total (adds 3.5% if 'Inbound Ad Spend')
-const choice = $('#descSel').value; // you already have this
-const totalCents = computeTotalCents(amountVal, choice);
-const totalDollars = totalCents / 100;
 
-      
+      // Compute total with 3.5% fee for Ad Spend
+      const totalCents = computeTotalCents(amountVal, choice);
+      const totalDollars = totalCents / 100;
+
       // Which PM?
       const checked = document.querySelector('input[name="pmPick"]:checked');
       let pmId = checked ? checked.value : null;
@@ -615,13 +610,13 @@ const totalDollars = totalCents / 100;
             body: JSON.stringify({
               customerId: cid,
               paymentMethodId: pmId,
-              amount: totalCents, // includes +3.5% if Ad Spend
+              amount: totalCents, // cents (includes 3.5% if Ad Spend)
               statementDescriptor,
               description: desc
             })
           }, NET_TIMEOUT_MS).then(r=>r.json());
           if (res.error) throw new Error(res.error);
-          document.getElementById('resultMsg').textContent = res.settlement_notice ? '✅ Charged. ' + res.settlement_notice : '✅ Charged successfully';
+          document.getElementById('resultMsg').textContent = res.settlement_notice ? '✅ Charged. ' + res.settlement_notice : `✅ Charged successfully. Total: $${totalDollars.toFixed(2)}`;
         } else {
           const date=document.getElementById('chargeDate').value;
           if (!date){ document.getElementById('resultMsg').textContent='❌ Please pick a future date.'; showOverlay(false); return; }
@@ -635,18 +630,19 @@ const totalDollars = totalCents / 100;
               customerId: cid,
               paymentMethodId: pmId,
               productId: PRODUCT_ID,
-              amount: totalDollars, // includes +3.5% if Ad Spend
+              amount: totalDollars,          // dollars (includes 3.5% if Ad Spend)
               date, time, timezone,
               description: desc,
               statementDescriptor
             })
           }, NET_TIMEOUT_MS).then(r=>r.json());
           if (res.error) throw new Error(res.error);
-          document.getElementById('resultMsg').textContent = '✅ Scheduled for ' + date + ' 09:00 AM ET';
+          document.getElementById('resultMsg').textContent = `✅ Scheduled for ${date} 09:00 AM ET. Total: $${totalDollars.toFixed(2)}`;
         }
 
         // Reset inputs
         document.getElementById('amount').value='';
+        document.getElementById('amountHint').textContent='';
         if (document.getElementById('descSel').value==='__other__') document.getElementById('descOther').value='';
 
         await refreshRightPanel();
